@@ -1,6 +1,6 @@
 "use client"
 
-import { FileOverview } from "./overview/file-overview"
+import { MemoryScreen } from "./memory-screen"
 import { SetupScreen } from "./setup/setup-screen"
 import { StartingScreen } from "./setup/starting-screen"
 import { UnreachableScreen } from "./setup/unreachable-screen"
@@ -18,5 +18,5 @@ export function Studio() {
   if (status.data.state === "setup") {
     return <SetupScreen problem={status.data.problem} />
   }
-  return <FileOverview path={status.data.path} />
+  return <MemoryScreen path={status.data.path} />
 }

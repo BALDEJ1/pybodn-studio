@@ -5,7 +5,8 @@ A local web screen for reading and editing the memory file of
 or copy. It is not published to npm or PyPI.
 
 The first version is being built in pull requests. Right now Studio opens the memory file and
-lists its namespaces with their counts; the memory screen comes in the next steps.
+shows its namespaces and their memories, with search, and the full text of the memory you pick.
+Editing comes in the next steps.
 
 ## Run it
 
