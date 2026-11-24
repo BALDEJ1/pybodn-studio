@@ -66,7 +66,8 @@ export interface BridgeProcess {
   readonly stdout: {
     on(event: "data", listener: (chunk: Buffer) => void): unknown
   }
-  on(event: "exit", listener: () => void): unknown
+  /** After the process ended and its output was read to the end, unlike "exit". */
+  on(event: "close", listener: () => void): unknown
   on(event: "error", listener: (error: NodeJS.ErrnoException) => void): unknown
   kill(): unknown
 }
@@ -188,7 +189,7 @@ export class BridgeClient {
     }
     const running: Running = {
       process: child,
-      exited: new Promise((resolve) => child.on("exit", () => resolve())),
+      exited: new Promise((resolve) => child.on("close", () => resolve())),
       chunks: [],
       buffered: 0,
     }
@@ -205,7 +206,9 @@ export class BridgeClient {
     child.stdin.on("error", () => {})
     child.stdout.on("data", (chunk) => this.#onData(running, chunk))
     child.on("error", (error) => this.#onError(running, error))
-    child.on("exit", () => this.#onExit(running))
+    // "close", not "exit": a bridge that refuses the file prints why and ends at once, and its
+    // last line may still be on the way when "exit" comes.
+    child.on("close", () => this.#onExit(running))
   }
 
   #onData(running: Running, chunk: Buffer): void {

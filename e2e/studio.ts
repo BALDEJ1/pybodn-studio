@@ -21,8 +21,12 @@ export async function startStudio(db: string | undefined): Promise<Studio> {
       : { ...environ, PORT: port },
     stdio: ["ignore", "pipe", "inherit"],
   })
-  const link = await linkOf(child)
-  return { link, stop: () => stop(child) }
+  try {
+    return { link: await linkOf(child), stop: () => stop(child) }
+  } catch (error) {
+    await stop(child)
+    throw error
+  }
 }
 
 /** Writes the demo memories to a new file at `path`. */

@@ -6,6 +6,7 @@ export default defineConfig({
   workers: 1,
   // The first start of the bridge may install Python and pybodn.
   timeout: 180_000,
+  expect: { timeout: 120_000 },
   forbidOnly: Boolean(process.env.CI),
   reporter: process.env.CI ? "github" : "list",
   use: { ...devices["Desktop Chrome"] },

@@ -24,7 +24,7 @@ export async function callMemory<M extends Method>(
   params: Params<M>
 ): Promise<Result<M>> {
   const response = await post("/api/memory", { method, params })
-  const answer = (await response.json()) as Answer<Result<M>>
+  const answer = (await jsonOf(response)) as Answer<Result<M>>
   if (!answer.ok) {
     throw new ApiError(response.status, answer.error.code, answer.error.message)
   }
@@ -33,17 +33,23 @@ export async function callMemory<M extends Method>(
 
 export async function fetchStatus(): Promise<BridgeStatus> {
   const response = await fetch("/api/status", { cache: "no-store" })
-  if (!response.ok)
-    throw new ApiError(response.status, "status", await response.text())
-  return (await response.json()) as BridgeStatus
+  return (await jsonOf(response)) as BridgeStatus
 }
 
 /** Starts the bridge again once a problem is fixed. */
 export async function retryStatus(): Promise<BridgeStatus> {
   const response = await post("/api/status", {})
-  if (!response.ok)
-    throw new ApiError(response.status, "status", await response.text())
-  return (await response.json()) as BridgeStatus
+  return (await jsonOf(response)) as BridgeStatus
+}
+
+/**
+ * The JSON of an answer. Studio's guard answers in plain text, for example when the sign-in
+ * cookie is gone, so that text becomes the error instead of a failure to parse it.
+ */
+async function jsonOf(response: Response): Promise<unknown> {
+  const type = response.headers.get("content-type") ?? ""
+  if (type.includes("application/json")) return response.json()
+  throw new ApiError(response.status, "http", await response.text())
 }
 
 function post(url: string, body: unknown): Promise<Response> {

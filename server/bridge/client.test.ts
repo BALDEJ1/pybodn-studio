@@ -201,7 +201,7 @@ describe("a bridge that breaks", () => {
     const { client, spawned, bridge } = ready()
     const pending = client.call("delete", {})
 
-    bridge.emit("exit")
+    bridge.emit("close")
     client.call("get", {}).catch(() => {})
 
     await expect(pending).rejects.toMatchObject({ code: "lost" })
@@ -292,7 +292,7 @@ describe("starting", () => {
     const { client, spawned } = start()
     client.status()
 
-    spawned[0].emit("exit")
+    spawned[0].emit("close")
 
     expect(client.status()).toMatchObject({
       state: "setup",
