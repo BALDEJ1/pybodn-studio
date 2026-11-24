@@ -1,31 +1,9 @@
-import { failureOf, callMemory } from "@/server/bridge/memory.ts"
-import { memoryRequestSchema } from "@/server/bridge/protocol.ts"
+import { runRequest } from "@/server/bridge/memory.ts"
 
 /** Every read and write of the memory file: `{method, params}` in, `{ok, result}` out. */
 export async function POST(request: Request): Promise<Response> {
-  let body: unknown
-  try {
-    body = await request.json()
-  } catch {
-    return refuse("The request is not JSON.")
-  }
-  const parsed = memoryRequestSchema.safeParse(body)
-  if (!parsed.success) {
-    const issue = parsed.error.issues[0]
-    return refuse(`${issue.path.join(".") || "request"}: ${issue.message}`)
-  }
-  try {
-    const result = await callMemory(parsed.data)
-    return Response.json({ ok: true, result })
-  } catch (error) {
-    const { status, body: answer } = failureOf(error, parsed.data.method)
-    return Response.json(answer, { status })
-  }
-}
-
-function refuse(message: string): Response {
-  return Response.json(
-    { ok: false, error: { code: "bad_request", message } },
-    { status: 400 }
-  )
+  // A body that is not JSON is refused with the rest of the bad requests.
+  const body: unknown = await request.json().catch(() => undefined)
+  const reply = await runRequest(body)
+  return Response.json(reply.body, { status: reply.status })
 }

@@ -1,12 +1,22 @@
-import type { BridgeStatus } from "@/server/bridge/client.ts"
-import type { Method, Params, Result } from "@/server/bridge/protocol.ts"
+import type {
+  BridgeStatus,
+  ErrorCode,
+  MemoryAnswer,
+  Method,
+  Params,
+  Result,
+} from "@/server/bridge/protocol.ts"
+
+/** The key of the bridge's status in the page's cache. */
+export const STATUS_KEY = ["status"] as const
 
 /** A request Studio's server refused or could not finish, with its reason for the person. */
 export class ApiError extends Error {
-  readonly code: string
+  /** `http`: the answer was not Studio's own, such as the guard's when sign-in is lost. */
+  readonly code: ErrorCode | "http"
   readonly status: number
 
-  constructor(status: number, code: string, message: string) {
+  constructor(status: number, code: ErrorCode | "http", message: string) {
     super(message)
     this.name = "ApiError"
     this.status = status
@@ -14,17 +24,13 @@ export class ApiError extends Error {
   }
 }
 
-type Answer<T> =
-  | { ok: true; result: T }
-  | { ok: false; error: { code: string; message: string } }
-
 /** Reads or changes the memory file through Studio's server. */
 export async function callMemory<M extends Method>(
   method: M,
   params: Params<M>
 ): Promise<Result<M>> {
   const response = await post("/api/memory", { method, params })
-  const answer = (await jsonOf(response)) as Answer<Result<M>>
+  const answer = (await jsonOf(response)) as MemoryAnswer<Result<M>>
   if (!answer.ok) {
     throw new ApiError(response.status, answer.error.code, answer.error.message)
   }
@@ -40,6 +46,22 @@ export async function fetchStatus(): Promise<BridgeStatus> {
 export async function retryStatus(): Promise<BridgeStatus> {
   const response = await post("/api/status", {})
   return (await jsonOf(response)) as BridgeStatus
+}
+
+// After these the bridge is no longer running as it was, or Studio's server cannot be reached.
+const RECHECK: ReadonlySet<ApiError["code"]> = new Set([
+  "http",
+  "setup",
+  "stopped",
+  "lost",
+  "timeout",
+  "unconfirmed",
+])
+
+/** Whether, after this error, the page should ask again where the bridge is. */
+export function needsStatusCheck(error: Error): boolean {
+  // An error that is not an ApiError never got an answer from Studio's server.
+  return !(error instanceof ApiError) || RECHECK.has(error.code)
 }
 
 /**

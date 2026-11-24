@@ -42,7 +42,8 @@ standard input and output. uv installs Python and pybodn for it the first time.
 
 To use a Python of your own that already has pybodn 1.2 or later, set `PYBODN_PYTHON` to it.
 Studio runs that program, so set it only to a Python you trust. The bridge gets only the variables
-it needs, such as `PATH`, `HOME` and `PYBODN_DB`, and never the rest of your environment.
+it needs, such as `PATH`, `HOME`, `PYBODN_DB` and your proxy settings, and never the rest of your
+environment.
 
 The bridge opens only a file that already exists and is not empty. Opening a file is also a
 write: pybodn may bring an older file up to its own format. If your application uses an older

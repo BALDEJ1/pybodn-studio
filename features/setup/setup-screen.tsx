@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import type { Problem } from "@/server/bridge/client.ts"
+import type { Problem } from "@/server/bridge/protocol.ts"
 
 import { ADVICE } from "./advice"
 import { useRetry } from "./use-bridge-status"

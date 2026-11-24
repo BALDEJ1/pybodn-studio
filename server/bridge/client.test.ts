@@ -196,6 +196,23 @@ describe("time limits", () => {
   })
 })
 
+describe("reading answers", () => {
+  test("an answer split across reads, even inside a character, arrives whole", async () => {
+    const { client, bridge } = ready()
+    const pending = client.call("get", {})
+    const text = "café ☕"
+    const line = Buffer.from(
+      `${JSON.stringify({ id: bridge.ids()[0], ok: true, result: text })}\n`
+    )
+    const insideCup = line.indexOf(Buffer.from("☕")) + 1
+
+    bridge.stdout.emit("data", line.subarray(0, insideCup))
+    bridge.stdout.emit("data", line.subarray(insideCup))
+
+    await expect(pending).resolves.toBe(text)
+  })
+})
+
 describe("a bridge that breaks", () => {
   test("stopping while it answers fails the request; the next one starts a new bridge", async () => {
     const { client, spawned, bridge } = ready()
@@ -337,5 +354,19 @@ describe("stopping", () => {
 
     expect(endedFirst).toBe(true)
     expect(bridge.killed).toBe(true)
+  })
+
+  test("after stopping, nothing starts the bridge again", async () => {
+    const { client, spawned } = ready()
+    const stopping = client.stop()
+    await vi.advanceTimersByTimeAsync(2_000)
+    await stopping
+
+    const late = client.call("get", {})
+
+    await expect(late).rejects.toMatchObject({ code: "stopped" })
+    expect(client.status()).toEqual({ state: "stopped" })
+    expect(client.retry()).toEqual({ state: "stopped" })
+    expect(spawned).toHaveLength(1)
   })
 })

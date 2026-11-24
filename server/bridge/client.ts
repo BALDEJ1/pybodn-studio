@@ -5,51 +5,30 @@
  * after the answer to the last one. A request's time limit therefore starts when it is sent, not
  * when it is queued, and a long request does not use up the time of those behind it.
  */
-import { answerSchema, greetingSchema } from "./protocol.ts"
-import type { BRIDGE_ERRORS } from "./protocol.ts"
+import {
+  answerSchema,
+  greetingSchema,
+  type BridgeStatus,
+  type ErrorCode,
+  type SetupCode,
+} from "./protocol.ts"
 
 export const QUEUE_LIMIT = 32
 export const LINE_LIMIT = 64 * 1024 * 1024 // bytes in one answer
 export const START_TIMEOUT = 120_000 // the first start may install Python and pybodn
 export const CALL_TIMEOUT = 30_000
-export const ERASE_TIMEOUT = 15 * 60_000 // erasing rewrites the whole file
 const STOP_GRACE = 2_000 // time to close the engine after the input ends
 
 const NEWLINE = 0x0a
+const MB = 1024 * 1024
+const MINUTE = 60_000
 
-/** Why the bridge is not running, for the setup screen. */
-export type SetupCode =
-  | "missing_env"
-  | "no_file"
-  | "no_pybodn"
-  | "old_pybodn"
-  | "newer_file"
-  | "open_failed"
-  | "no_runner"
-  | "bridge_failed"
-
-export type Problem = { code: SetupCode; message: string; path: string | null }
-
-export type BridgeStatus =
-  | { state: "starting" }
-  | { state: "ready"; path: string; python: string; pybodn: string }
-  | { state: "setup"; problem: Problem }
-
-/**
- * - the bridge's own codes, such as `invalid` or `conflict`;
- * - `timeout`: sent, and no answer came in time;
- * - `lost`: sent, and the bridge stopped before it answered;
- * - `stopped`: never sent, because the bridge stopped first;
- * - `setup`: the bridge cannot open the file;
- * - `busy`, also: too many requests are waiting.
- */
-export type BridgeErrorCode =
-  (typeof BRIDGE_ERRORS)[number] | "timeout" | "lost" | "stopped" | "setup"
+const SHUTTING_DOWN = "Studio is shutting down."
 
 export class BridgeError extends Error {
-  readonly code: BridgeErrorCode
+  readonly code: ErrorCode
 
-  constructor(code: BridgeErrorCode, message: string) {
+  constructor(code: ErrorCode, message: string) {
     super(message)
     this.name = "BridgeError"
     this.code = code
@@ -87,7 +66,12 @@ type Running = {
   buffered: number
 }
 
-type Ready = Extract<BridgeStatus, { state: "ready" }>
+/** The status the page sees, or idle: not running until something asks for it. */
+type State = BridgeStatus | { state: "idle" }
+
+const IDLE = { state: "idle" } as const
+const STARTING = { state: "starting" } as const
+const STOPPED = { state: "stopped" } as const
 
 export type ClientOptions = {
   spawn: () => BridgeProcess
@@ -98,9 +82,7 @@ export type ClientOptions = {
 export class BridgeClient {
   readonly #spawn: () => BridgeProcess
   readonly #runner: "uv" | "python"
-  #state: "idle" | "starting" | "ready" | "setup" = "idle"
-  #ready: Ready | null = null
-  #problem: Problem | null = null
+  #state: State = IDLE
   #running: Running | null = null
   #startTimer: NodeJS.Timeout | undefined
   #queue: Call[] = []
@@ -115,18 +97,12 @@ export class BridgeClient {
 
   /** Where the bridge is. Asking starts it if it is not running. */
   status(): BridgeStatus {
-    if (this.#state === "idle") this.#start()
-    if (this.#state === "ready" && this.#ready) return this.#ready
-    if (this.#state === "setup" && this.#problem) {
-      return { state: "setup", problem: this.#problem }
-    }
-    return { state: "starting" }
+    return this.#state.state === "idle" ? this.#start() : this.#state
   }
 
   /** Starts the bridge again after a problem, such as a file that was missing and is there now. */
   retry(): BridgeStatus {
-    if (this.#state === "setup") this.#state = "idle"
-    return this.status()
+    return this.#state.state === "setup" ? this.#start() : this.status()
   }
 
   /** Sends one request and resolves with its result, or rejects with a `BridgeError`. */
@@ -135,11 +111,12 @@ export class BridgeClient {
     params: unknown,
     timeout = CALL_TIMEOUT
   ): Promise<unknown> {
-    if (this.#state === "idle") this.#start()
-    if (this.#state === "setup") {
-      return Promise.reject(
-        new BridgeError("setup", this.#problem?.message ?? "")
-      )
+    const status = this.status()
+    if (status.state === "setup") {
+      return Promise.reject(new BridgeError("setup", status.problem.message))
+    }
+    if (status.state === "stopped") {
+      return Promise.reject(new BridgeError("stopped", SHUTTING_DOWN))
     }
     if (this.#queue.length + (this.#current ? 1 : 0) >= QUEUE_LIMIT) {
       return Promise.reject(
@@ -157,13 +134,16 @@ export class BridgeClient {
     })
   }
 
-  /** Ends the bridge's input so that it closes the engine, then stops it. For shutting down. */
+  /**
+   * Ends the bridge's input so that it closes the engine, then stops it. For shutting down:
+   * nothing starts the bridge again afterwards.
+   */
   async stop(): Promise<void> {
     const running = this.#running
     this.#end(
-      "idle",
-      new BridgeError("lost", "Studio is shutting down."),
-      new BridgeError("stopped", "Studio is shutting down."),
+      STOPPED,
+      new BridgeError("lost", SHUTTING_DOWN),
+      new BridgeError("stopped", SHUTTING_DOWN),
       false
     )
     if (!running) return
@@ -177,15 +157,12 @@ export class BridgeClient {
     this.#running?.process.kill()
   }
 
-  #start(): void {
-    this.#state = "starting"
-    this.#problem = null
+  #start(): BridgeStatus {
     let child: BridgeProcess
     try {
       child = this.#spawn()
     } catch (error) {
-      this.#setup("bridge_failed", messageOf(error))
-      return
+      return this.#setup("bridge_failed", messageOf(error))
     }
     const running: Running = {
       process: child,
@@ -194,11 +171,12 @@ export class BridgeClient {
       buffered: 0,
     }
     this.#running = running
+    this.#state = STARTING
     this.#startTimer = setTimeout(() => {
       if (running === this.#running) {
         this.#setup(
           "bridge_failed",
-          "Studio's Python side did not start within 2 minutes."
+          `Studio's Python side did not start within ${START_TIMEOUT / MINUTE} minutes.`
         )
       }
     }, START_TIMEOUT)
@@ -209,6 +187,7 @@ export class BridgeClient {
     // "close", not "exit": a bridge that refuses the file prints why and ends at once, and its
     // last line may still be on the way when "exit" comes.
     child.on("close", () => this.#onExit(running))
+    return STARTING
   }
 
   #onData(running: Running, chunk: Buffer): void {
@@ -235,7 +214,9 @@ export class BridgeClient {
 
   #tooLong(running: Running, more: number): boolean {
     if (running.buffered + more <= LINE_LIMIT) return false
-    this.#broken("An answer from the memory file was larger than 64 MB.")
+    this.#broken(
+      `An answer from the memory file was larger than ${LINE_LIMIT / MB} MB.`
+    )
     return true
   }
 
@@ -248,7 +229,7 @@ export class BridgeClient {
       this.#broken("Studio's Python side sent a line that is not JSON.")
       return
     }
-    if (this.#state === "starting") {
+    if (this.#state.state === "starting") {
       this.#onGreeting(message)
       return
     }
@@ -286,8 +267,7 @@ export class BridgeClient {
       this.#setup(hello.error.code, hello.error.message, hello.path)
       return
     }
-    this.#state = "ready"
-    this.#ready = {
+    this.#state = {
       state: "ready",
       path: hello.path,
       python: hello.python,
@@ -311,7 +291,7 @@ export class BridgeClient {
 
   #onExit(running: Running): void {
     if (running !== this.#running) return
-    if (this.#state === "starting") {
+    if (this.#state.state === "starting") {
       this.#setup(
         "bridge_failed",
         "Studio's Python side stopped before it started. Its messages are in the terminal."
@@ -319,7 +299,7 @@ export class BridgeClient {
       return
     }
     this.#end(
-      "idle",
+      IDLE,
       new BridgeError(
         "lost",
         "Studio's Python side stopped before it answered."
@@ -331,35 +311,35 @@ export class BridgeClient {
 
   /** The bridge broke the protocol: stop it. Before its greeting that is a setup problem. */
   #broken(reason: string): void {
-    if (this.#state === "starting") {
+    if (this.#state.state === "starting") {
       this.#setup("bridge_failed", reason)
       return
     }
     this.#end(
-      "idle",
+      IDLE,
       new BridgeError("lost", reason),
       new BridgeError("stopped", reason),
       true
     )
   }
 
-  #setup(code: SetupCode, message: string, path: string | null = null): void {
-    this.#problem = { code, message, path }
+  #setup(code: SetupCode, message: string, path: string | null = null) {
+    const setup = { state: "setup", problem: { code, message, path } } as const
     const refused = new BridgeError("setup", message)
-    this.#end("setup", refused, refused, true)
+    this.#end(setup, refused, refused, true)
+    return setup
   }
 
   /** Leaves the running bridge behind and fails every request still waiting. */
   #end(
-    state: "idle" | "setup",
+    next: State,
     current: BridgeError,
     queued: BridgeError,
     kill: boolean
   ): void {
     const running = this.#running
     this.#running = null
-    this.#state = state
-    this.#ready = null
+    this.#state = next
     clearTimeout(this.#startTimer)
     clearTimeout(this.#callTimer)
     if (kill) running?.process.kill()
@@ -371,7 +351,7 @@ export class BridgeClient {
   }
 
   #pump(): void {
-    if (this.#state !== "ready" || this.#current || !this.#running) return
+    if (this.#state.state !== "ready" || this.#current || !this.#running) return
     const next = this.#queue.shift()
     if (!next) return
     this.#current = next
@@ -379,7 +359,7 @@ export class BridgeClient {
     this.#callTimer = setTimeout(() => {
       if (this.#current !== next) return
       this.#end(
-        "idle",
+        IDLE,
         new BridgeError("timeout", "The memory file did not answer in time."),
         new BridgeError(
           "stopped",

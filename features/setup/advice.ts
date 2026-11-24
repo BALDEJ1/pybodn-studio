@@ -1,4 +1,4 @@
-import type { SetupCode } from "@/server/bridge/client.ts"
+import type { SetupCode } from "@/server/bridge/protocol.ts"
 
 export type Advice = {
   title: string

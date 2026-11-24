@@ -2,6 +2,8 @@ import { type ChildProcess, spawn, spawnSync } from "node:child_process"
 import { once } from "node:events"
 import { createServer } from "node:net"
 
+import { bridgeCommand } from "../server/bridge/command.ts"
+
 const ROOT = process.cwd()
 const LINK = /http:\/\/127\.0\.0\.1:\d+\/\?token=[\w-]+/
 const START_LIMIT = 60_000
@@ -16,9 +18,7 @@ export async function startStudio(db: string | undefined): Promise<Studio> {
   const port = String(await freePort())
   const child = spawn(process.execPath, ["server.ts", "--production"], {
     cwd: ROOT,
-    env: db
-      ? { ...environ, PORT: port, PYBODN_DB: db }
-      : { ...environ, PORT: port },
+    env: { ...environ, PORT: port, ...(db ? { PYBODN_DB: db } : {}) },
     stdio: ["ignore", "pipe", "inherit"],
   })
   try {
@@ -29,20 +29,14 @@ export async function startStudio(db: string | undefined): Promise<Studio> {
   }
 }
 
-/** Writes the demo memories to a new file at `path`. */
+/** Writes the demo memories to a new file at `path`, with the Python that Studio uses. */
 export function seed(path: string): void {
-  const run = spawnSync(
-    "uv",
-    [
-      "run",
-      "--project",
-      "bridge",
-      "--locked",
-      "--no-dev",
-      "--no-config",
-    ].concat(["python", "-I", "bridge/seed.py", path]),
-    { cwd: ROOT, encoding: "utf8" }
-  )
+  const { command, args, env } = bridgeCommand(process.env, ROOT, "seed.py")
+  const run = spawnSync(command, [...args, path], {
+    cwd: ROOT,
+    env: env as NodeJS.ProcessEnv,
+    encoding: "utf8",
+  })
   if (run.status !== 0) throw new Error(`seed failed: ${run.stderr}`)
 }
 

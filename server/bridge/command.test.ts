@@ -23,6 +23,25 @@ describe("the command that starts the bridge", () => {
     ])
   })
 
+  test("matches the names whatever their case, as Windows and proxies write them", () => {
+    const environ = {
+      Path: "C:\\uv",
+      SystemRoot: "C:\\Windows",
+      https_proxy: "http://proxy.example:3128",
+      SSL_CERT_FILE: "/etc/company.pem",
+      Gh_Token: "secret",
+    }
+
+    const { env } = bridgeCommand(environ, "C:\\studio")
+
+    expect(Object.keys(env).sort()).toEqual([
+      "Path",
+      "SSL_CERT_FILE",
+      "SystemRoot",
+      "https_proxy",
+    ])
+  })
+
   test("runs the locked bridge through uv, isolated from uv's and Python's settings", () => {
     const { command, args } = bridgeCommand({}, "/studio")
 

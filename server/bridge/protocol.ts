@@ -1,8 +1,12 @@
 /**
  * What Studio and the Python bridge say to each other, and what the page may ask for.
  *
- * Every line from the bridge and every request from the page is checked here before it is used.
- * The library checks the values again, so these schemas check shapes and types only.
+ * The bridge's greeting and the envelope of its answers are checked here, and so is every request
+ * from the page. The results inside the answers are not checked again: the bridge is Studio's own
+ * code, and its greeting proves it speaks this protocol. Their schemas give the page its types.
+ * The library checks the values of a request again, so these schemas check shapes and types only.
+ *
+ * This file holds no Node code, so the page may import its types.
  */
 import { z } from "zod"
 
@@ -21,6 +25,21 @@ const REFUSALS = [
   "newer_file",
   "open_failed",
 ] as const
+
+/** Why the bridge is not running, for the setup screen. */
+export type SetupCode =
+  | (typeof REFUSALS)[number]
+  | "no_runner" // uv, or the Python in PYBODN_PYTHON, is not there
+  | "bridge_failed" // the bridge started and then broke
+
+export type Problem = { code: SetupCode; message: string; path: string | null }
+
+/** Where the bridge is, as the page sees it. `stopped`: Studio is shutting down. */
+export type BridgeStatus =
+  | { state: "starting" }
+  | { state: "ready"; path: string; python: string; pybodn: string }
+  | { state: "setup"; problem: Problem }
+  | { state: "stopped" }
 
 const versions = { protocol: z.literal(PROTOCOL), python: z.string() }
 
@@ -44,7 +63,7 @@ export const greetingSchema = z.object({
 })
 
 /** The codes of the errors the bridge answers with. */
-export const BRIDGE_ERRORS = [
+const BRIDGE_ERRORS = [
   "invalid",
   "not_found",
   "duplicate_key",
@@ -56,6 +75,23 @@ export const BRIDGE_ERRORS = [
   "internal",
   "bad_request",
 ] as const
+
+/**
+ * Every code a request can fail with: the bridge's own, and those of Studio.
+ * - `timeout`: sent, and no answer came in time;
+ * - `lost`: sent, and the bridge stopped before it answered;
+ * - `stopped`: never sent, because the bridge stopped first;
+ * - `setup`: the bridge cannot open the file;
+ * - `unconfirmed`: a change got no answer, so it may or may not have happened;
+ * - `busy`, also: too many requests are waiting.
+ */
+export type ErrorCode =
+  | (typeof BRIDGE_ERRORS)[number]
+  | "timeout"
+  | "lost"
+  | "stopped"
+  | "setup"
+  | "unconfirmed"
 
 export const answerSchema = z.discriminatedUnion("ok", [
   z.object({ id: z.number().int(), ok: z.literal(true), result: z.unknown() }),
@@ -69,6 +105,11 @@ export const answerSchema = z.discriminatedUnion("ok", [
     }),
   }),
 ])
+
+/** What Studio's server answers the page for one request. */
+export type MemoryAnswer<T = unknown> =
+  | { ok: true; result: T }
+  | { ok: false; error: { code: ErrorCode; message: string } }
 
 // Results ----------------------------------------------------------------------------------------
 
@@ -119,7 +160,16 @@ const overviewSchema = z.object({
 })
 export type Overview = z.infer<typeof overviewSchema>
 
-// Requests ---------------------------------------------------------------------------------------
+// Methods ----------------------------------------------------------------------------------------
+
+export type MethodSpec = {
+  params: z.ZodType
+  result: z.ZodType
+  /** It changes the file: a lost answer means Studio cannot say whether it happened. */
+  write?: true
+  /** How long it may take, when that is longer than the usual time limit. */
+  timeout?: number
+}
 
 const target = { namespace: z.string(), id: z.string() }
 const changes = z
@@ -134,7 +184,7 @@ const changes = z
   .partial()
   .strict()
 
-/** Each method of the bridge: its parameters and its result. */
+/** Each method of the bridge. A new method is one entry here and one function in bridge.py. */
 export const METHODS = {
   overview: { params: z.object({}).strict(), result: overviewSchema },
   list: {
@@ -160,6 +210,7 @@ export const METHODS = {
       })
       .strict(),
     result: recordSchema,
+    write: true,
   },
   put: {
     params: z
@@ -171,6 +222,7 @@ export const METHODS = {
       })
       .strict(),
     result: recordSchema,
+    write: true,
   },
   update: {
     params: z
@@ -181,59 +233,36 @@ export const METHODS = {
       })
       .strict(),
     result: recordSchema,
+    write: true,
   },
-  archive: { params: z.object(target).strict(), result: recordSchema },
-  restore: { params: z.object(target).strict(), result: recordSchema },
+  archive: {
+    params: z.object(target).strict(),
+    result: recordSchema,
+    write: true,
+  },
+  restore: {
+    params: z.object(target).strict(),
+    result: recordSchema,
+    write: true,
+  },
   delete: {
     params: z.object(target).strict(),
     result: z.object({ deleted: z.literal(true) }),
+    write: true,
   },
   purge_expired: {
     params: z.object({}).strict(),
     result: z.object({ purged: z.number().int() }),
+    write: true,
   },
   erase_deleted: {
     params: z.object({}).strict(),
     result: z.object({}),
+    write: true,
+    timeout: 15 * 60_000, // erasing rewrites the whole file
   },
-} as const
+} as const satisfies Record<string, MethodSpec>
 
 export type Method = keyof typeof METHODS
 export type Params<M extends Method> = z.infer<(typeof METHODS)[M]["params"]>
 export type Result<M extends Method> = z.infer<(typeof METHODS)[M]["result"]>
-
-/** Methods that change the file: a lost answer means Studio cannot say whether they happened. */
-export const WRITES: ReadonlySet<Method> = new Set<Method>([
-  "add",
-  "put",
-  "update",
-  "archive",
-  "restore",
-  "delete",
-  "purge_expired",
-  "erase_deleted",
-])
-
-function requestOf<M extends Method>(method: M) {
-  return z
-    .object({ method: z.literal(method), params: METHODS[method].params })
-    .strict()
-}
-
-/** A request from the page: one method of the bridge with its parameters. */
-export const memoryRequestSchema = z.discriminatedUnion("method", [
-  requestOf("overview"),
-  requestOf("list"),
-  requestOf("search"),
-  requestOf("get"),
-  requestOf("key_owner"),
-  requestOf("add"),
-  requestOf("put"),
-  requestOf("update"),
-  requestOf("archive"),
-  requestOf("restore"),
-  requestOf("delete"),
-  requestOf("purge_expired"),
-  requestOf("erase_deleted"),
-])
-export type MemoryRequest = z.infer<typeof memoryRequestSchema>
