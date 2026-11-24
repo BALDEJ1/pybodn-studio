@@ -30,7 +30,9 @@ export function MemoryScreen({ path }: { path: string }) {
   // Nothing is read from a namespace before the file says which ones it has.
   const rows = useRows(spaces ? place.namespace : null, place.view, place.query)
   const loading = !spaces || (place.namespace !== null && !rows.rows)
-  const shown = shownId(place, rows.rows, rows.searching)
+  // The memory waits for the namespaces too: a link to one that is gone, or namespaces that
+  // could not be read, leaves the list in view with the reason.
+  const shown = spaces ? shownId(place, rows.rows, rows.searching) : null
   // Below 1024 px the memory fills the screen once one is picked and can be shown.
   const picked = place.id !== null && shown !== null
   const counts = rows.searching
@@ -43,6 +45,7 @@ export function MemoryScreen({ path }: { path: string }) {
       <NamespaceSidebar
         path={path}
         namespaces={spaces}
+        loading={overview.isPending}
         current={place.namespace}
         onPick={(name) => go(toNamespace(name))}
       />

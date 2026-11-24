@@ -30,17 +30,17 @@ const QUIET: Record<View, Said> = {
   active: {
     icon: InboxIcon,
     title: "No memories here",
-    text: "Add one, or look under Archived.",
+    text: "New memories in this namespace show up here.",
   },
   archived: {
     icon: ArchiveIcon,
     title: "Nothing archived",
-    text: "Archived memories leave search and reads but stay in the file.",
+    text: "Archived memories show up here.",
   },
   expired: {
     icon: ClockIcon,
     title: "Nothing expired",
-    text: "Memories past their expiry date wait here until you delete them.",
+    text: "Memories past their expiry date show up here.",
   },
 }
 

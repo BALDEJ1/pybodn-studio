@@ -6,6 +6,8 @@ import { expect, test, type Page } from "@playwright/test"
 
 import { seed, startStudio, type Studio } from "./studio"
 
+const PHONE = { width: 375, height: 812 }
+
 let folder: string
 let studio: Studio
 
@@ -83,7 +85,7 @@ test("new words typed right after clearing a search never show the old matches",
 test("on a phone, the app's Back and the browser's Back agree", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 375, height: 812 })
+  await page.setViewportSize(PHONE)
   await page.goto(studio.link)
   await expect(heading(page)).toHaveText("agent:planner")
   await page.getByRole("button", { name: "Open namespaces" }).click()
@@ -96,6 +98,64 @@ test("on a phone, the app's Back and the browser's Back agree", async ({
   // The app's Back undid the pick, so the browser's Back now undoes the namespace.
   await page.goBack()
   await expect(heading(page)).toHaveText("agent:planner")
+})
+
+test("on a phone, Back from a memory opened by a link goes to its list instead of leaving Studio", async ({
+  page,
+  context,
+}) => {
+  const link = await memoryLink(page, "user:bob")
+  const phone = await context.newPage()
+  await phone.setViewportSize(PHONE)
+  await phone.goto(link.url)
+  await expect(memoryText(phone)).toHaveText(link.text)
+
+  await phone.getByRole("button", { name: "Back to memories" }).click()
+  await expect(rows(phone).first()).toBeVisible()
+  await expect(heading(phone)).toHaveText("user:bob")
+  expect(new URL(phone.url()).searchParams.has("id")).toBe(false)
+})
+
+test("on a phone, a memory opened by a link shows why the namespaces could not be read, and Retry", async ({
+  page,
+  context,
+}) => {
+  const link = await memoryLink(page, "user:bob")
+  const phone = await context.newPage()
+  await phone.setViewportSize(PHONE)
+  const failing = new Set(["overview"])
+  let overviews = 0
+  await phone.route("**/api/memory", (route) => {
+    const { method } = route.request().postDataJSON() as { method: string }
+    if (method === "overview") overviews += 1
+    if (!failing.has(method)) return route.fallback()
+    return route.fulfill({
+      json: { ok: false, error: { code: "busy", message: BUSY } },
+    })
+  })
+  await phone.goto(link.url)
+
+  // The memory could be read, but it waits for the namespaces: the list shows why they failed.
+  const list = phone.getByRole("region", { name: "Memories" })
+  const retry = phone.getByRole("button", { name: "Retry" })
+  await expect(list.getByText(BUSY)).toBeVisible()
+  await expect(retry).toBeVisible()
+  await expect(memoryText(phone)).toBeHidden()
+
+  // A failed read waits for Retry instead of failing again every few seconds.
+  const tried = overviews
+  await phone.waitForTimeout(6_000)
+  expect(overviews).toBe(tried)
+
+  // The namespaces come back and the memory opens; a failed read of it has its own Retry.
+  failing.delete("overview")
+  failing.add("get")
+  await retry.click()
+  const memory = phone.getByRole("region", { name: "Memory", exact: true })
+  await expect(memory.getByText(BUSY)).toBeVisible()
+  failing.delete("get")
+  await retry.click()
+  await expect(memoryText(phone)).toHaveText(link.text)
 })
 
 test("a memory written past the page shows up by itself, and hostile text stays text", async ({
@@ -129,6 +189,21 @@ test("a memory written past the page shows up by itself, and hostile text stays 
   await openNamespace(page, "user:alice")
   await expect(rows(page)).toHaveCount(8)
 })
+
+const BUSY = "Too many requests are waiting. Try again in a moment."
+
+/** The address of the newest memory in `namespace` once picked, to open as a link, and its text. */
+async function memoryLink(page: Page, namespace: string) {
+  await page.goto(studio.link)
+  await openNamespace(page, namespace)
+  await rows(page).first().click()
+  await expect(page).toHaveURL(/[?&]id=/)
+  return { url: page.url(), text: (await memoryText(page).textContent()) ?? "" }
+}
+
+function memoryText(page: Page) {
+  return page.getByRole("region", { name: "Memory", exact: true }).locator("p")
+}
 
 function openNamespace(page: Page, name: string) {
   return page.getByRole("button", { name: `${name}, ` }).click()

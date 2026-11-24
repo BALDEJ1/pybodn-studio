@@ -21,14 +21,22 @@ const SKELETON_ITEMS = 4
 
 type Props = {
   path: string
-  /** Undefined until the file has been read. */
+  /** Undefined until the file has been read, or when it could not be. */
   namespaces: Overview["namespaces"] | undefined
+  /** Grey placeholders stand in while the first read is on its way. */
+  loading: boolean
   current: string | null
   onPick: (namespace: string) => void
 }
 
 /** The file, its namespaces with their active memories counted, and the theme. */
-export function NamespaceSidebar({ path, namespaces, current, onPick }: Props) {
+export function NamespaceSidebar({
+  path,
+  namespaces,
+  loading,
+  current,
+  onPick,
+}: Props) {
   const { setOpenMobile } = useSidebar()
   return (
     <Sidebar>
@@ -49,13 +57,13 @@ export function NamespaceSidebar({ path, namespaces, current, onPick }: Props) {
           <SidebarGroupLabel>Namespaces</SidebarGroupLabel>
           <nav aria-label="Namespaces">
             <SidebarMenu>
-              {namespaces === undefined
+              {loading
                 ? Array.from({ length: SKELETON_ITEMS }, (_, index) => (
                     <SidebarMenuItem key={index}>
                       <SidebarMenuSkeleton />
                     </SidebarMenuItem>
                   ))
-                : namespaces.map(({ name, active }) => (
+                : namespaces?.map(({ name, active }) => (
                     <SidebarMenuItem key={name}>
                       <SidebarMenuButton
                         isActive={name === current}

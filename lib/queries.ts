@@ -28,12 +28,15 @@ export const listQuery = (namespace: string, view: View) =>
     ...FRESH,
   })
 
+/**
+ * Every match of `query` in each tab. No matches of other words stand in while these are looked
+ * up: they could be from a search already cleared. The server is on this computer and answers
+ * within milliseconds.
+ */
 export const searchQuery = (namespace: string, query: string) =>
   queryOptions({
     queryKey: ["search", namespace, query],
     queryFn: () => callMemory("search", { namespace, query }),
-    // No matches of other words stand in while these are looked up: they could be from a search
-    // already cleared. The server is on this computer and answers within milliseconds.
     ...FRESH,
   })
 
