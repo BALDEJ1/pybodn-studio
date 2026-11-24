@@ -64,15 +64,45 @@ export function edit(
   })
 }
 
+/** Whether someone saved the memory after the draft's edits began. */
+export function changedElsewhere(
+  draft: Draft | undefined,
+  record: MemoryRecord
+): boolean {
+  return draft !== undefined && record.version > draft.version
+}
+
 /**
- * The draft on top of `record`, a newer version of the memory: after the person's own change, or
- * when they keep their edits over someone else's. Edits that `record` already holds are done.
+ * The draft on top of `record`, a newer version of the memory, when the person keeps their edits
+ * over someone else's. Edits that `record` already holds are done.
  */
 export function rebase(
   draft: Draft | undefined,
   record: MemoryRecord
 ): Draft | undefined {
   return draft && draftOf(record.version, record, draft.edits)
+}
+
+/**
+ * The draft once `sent` is saved as `saved`. What was typed while the save was on its way stays, on
+ * the saved version; the rest is done, even where the memory now lays it out another way.
+ */
+export function afterSave(
+  current: Draft | undefined,
+  sent: Draft,
+  saved: MemoryRecord
+): Draft | undefined {
+  if (!current) return undefined
+  const typed = FIELDS.filter((field) => {
+    const value = current.edits[field]
+    const before = sent.edits[field]
+    return value !== undefined && (before === undefined || !same(value, before))
+  })
+  return draftOf(
+    saved.version,
+    saved,
+    Object.fromEntries(typed.map((field) => [field, current.edits[field]]))
+  )
 }
 
 /** What saving the draft sends: only the fields that differ, each as the library takes it. */
@@ -137,26 +167,20 @@ function differing(record: MemoryRecord, edits: Partial<Form>): Partial<Form> {
   const saved = formOf(record)
   return Object.fromEntries(
     FIELDS.filter(
-      (field) =>
-        edits[field] !== undefined && !same(field, edits[field], saved[field])
+      (field) => edits[field] !== undefined && !same(edits[field], saved[field])
     ).map((field) => [field, edits[field]])
   )
 }
 
-function same(field: Field, a: Form[Field], b: Form[Field]): boolean {
-  // The same object laid out another way is the same metadata; key order still counts.
-  if (field === "metadata") return canonical(String(a)) === canonical(String(b))
+// Text is compared as typed: metadata that reads as the same object is still an edit, so no
+// keystroke is ever taken back.
+function same(a: Form[Field], b: Form[Field]): boolean {
   if (Array.isArray(a) && Array.isArray(b)) {
     return (
       a.length === b.length && a.every((value, index) => value === b[index])
     )
   }
   return a === b
-}
-
-function canonical(metadata: string): string {
-  const read = readMetadata(metadata)
-  return read.ok ? JSON.stringify(read.value) : metadata
 }
 
 function metadataOf(text: string): Record<string, unknown> {

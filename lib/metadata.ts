@@ -2,6 +2,8 @@ export type MetadataRead =
   { ok: true; value: Record<string, unknown> } | { ok: false; message: string }
 
 const NOT_OBJECT = "Metadata must be a JSON object, in curly braces."
+const TOO_LARGE =
+  "A whole number this large would lose digits. Put it in quotes to keep it as text."
 
 /** Metadata as the person reads and edits it. */
 export function metadataText(metadata: Record<string, unknown>): string {
@@ -23,5 +25,17 @@ export function readMetadata(text: string): MetadataRead {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     return { ok: false, message: NOT_OBJECT }
   }
+  if (losesDigits(value)) return { ok: false, message: TOO_LARGE }
   return { ok: true, value: value as Record<string, unknown> }
+}
+
+// The browser reads every number as a double, so a whole number past 2^53 comes back changed.
+function losesDigits(value: unknown): boolean {
+  if (typeof value === "number") {
+    return Number.isInteger(value) && !Number.isSafeInteger(value)
+  }
+  if (value !== null && typeof value === "object") {
+    return Object.values(value).some(losesDigits)
+  }
+  return false
 }

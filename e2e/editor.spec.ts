@@ -23,14 +23,13 @@ test.afterEach(async () => {
   rmSync(folder, { recursive: true, force: true })
 })
 
-test("edits wait in their memory while another is open, and a save keeps them, metadata keys and all", async ({
+test("edits wait in their memory while another is open, and a keyboard save keeps them, a tag still being typed and all", async ({
   page,
 }) => {
   await page.goto(studio.link)
   await openNamespace(page, "user:alice")
   await pick(page, "Allergic to peanuts")
   await memoryText(page).fill("Allergic to peanuts and cashews")
-  await field(page, "Tags").fill("nuts,")
   // A key that names an object's prototype stays an ordinary key all the way to the file.
   await field(page, "Metadata").fill('{"__proto__": {"admin": true}}')
 
@@ -40,6 +39,8 @@ test("edits wait in their memory while another is open, and a save keeps them, m
   await pick(page, "Allergic to peanuts")
   await expect(memoryText(page)).toHaveValue("Allergic to peanuts and cashews")
 
+  // A tag still being typed goes with the save, though nothing finished it.
+  await field(page, "Tags").fill("nuts")
   await page.keyboard.press("ControlOrMeta+s")
   await expect(button(page, "Save")).toBeHidden()
 

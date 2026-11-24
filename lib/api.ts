@@ -64,6 +64,14 @@ export function needsStatusCheck(error: Error): boolean {
   return !(error instanceof ApiError) || RECHECK.has(error.code)
 }
 
+// These fail the same way every time: only other words, or another memory, help.
+const FINAL: ReadonlySet<ApiError["code"]> = new Set(["invalid", "not_found"])
+
+/** Whether trying the same request again can go another way. */
+export function canRetry(error: Error): boolean {
+  return !(error instanceof ApiError && FINAL.has(error.code))
+}
+
 /**
  * The JSON of an answer. Studio's guard answers in plain text, for example when the sign-in
  * cookie is gone, so that text becomes the error instead of a failure to parse it.

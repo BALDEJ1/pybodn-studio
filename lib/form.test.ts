@@ -4,6 +4,8 @@ import type { MemoryRecord } from "@/server/bridge/protocol.ts"
 
 import { momentOf } from "./expiry"
 import {
+  afterSave,
+  changedElsewhere,
   changesOf,
   edit,
   fieldOf,
@@ -87,37 +89,66 @@ describe("a draft", () => {
     ).toBeDefined()
   })
 
-  test("metadata laid out another way is no edit; other values or key order are", () => {
-    const compact = '{"channel":"web"}'
+  test("metadata is kept as typed, even while it reads as the saved object", () => {
+    const saved = formOf(record).metadata
+    const typed = [
+      `${saved}\n`,
+      saved.replace("\n", "\n\n"),
+      '{"channel":"web"}',
+    ]
 
-    expect(edit(record, undefined, { metadata: compact })).toBeUndefined()
-    expect(
-      edit(record, undefined, { metadata: '{"channel": "email"}' })
-    ).toBeDefined()
-    expect(
-      edit({ ...record, metadata: { a: 1, b: 2 } }, undefined, {
-        metadata: '{"b": 2, "a": 1}',
-      })
-    ).toBeDefined()
+    for (const metadata of typed) {
+      expect(edit(record, undefined, { metadata })?.edits).toEqual({ metadata })
+    }
   })
 
-  test("metadata typed on one line is done once saved, though the file lays it out", () => {
+  test("is changed elsewhere once the memory has a version newer than its edits began on", () => {
+    const draft = drafted(record, { content: "Short answers" })
+
+    expect(changedElsewhere(draft, record)).toBe(false)
+    expect(changedElsewhere(draft, after({}))).toBe(true)
+    expect(changedElsewhere(undefined, after({}))).toBe(false)
+  })
+
+  test("kept over a newer version, moves onto it, and edits it already holds are done", () => {
+    const draft = drafted(record, { content: "Short answers", source: "chat" })
+    const newer = after({ source: "chat", tags: ["style", "tone"] })
+
+    expect(rebase(draft, newer)).toEqual({
+      version: 4,
+      edits: { content: "Short answers" },
+    })
+  })
+})
+
+describe("after a save", () => {
+  test("what was sent is done, though the memory now lays its metadata out another way", () => {
     const sent = drafted(record, { metadata: '{"channel":"email"}' })
     const saved = after({ metadata: { channel: "email" } })
 
-    expect(rebase(sent, saved)).toBeUndefined()
+    expect(afterSave(sent, sent, saved)).toBeUndefined()
   })
 
-  test("after the memory is saved, edits typed meanwhile stay, on its new version", () => {
-    const sent = edit(record, undefined, { content: "Short answers" })
-    const typedMeanwhile = edit(record, sent, { source: "chat" })
+  test("edits typed while the save was on its way stay, on the saved version", () => {
+    const sent = drafted(record, { content: "Short answers" })
+    const typedMeanwhile = edit(record, sent, {
+      content: "Short answers, please",
+      source: "chat",
+    })
     const saved = after({ content: "Short answers" })
 
-    expect(rebase(typedMeanwhile, saved)).toEqual({
+    expect(afterSave(typedMeanwhile, sent, saved)).toEqual({
       version: 4,
-      edits: { source: "chat" },
+      edits: { content: "Short answers, please", source: "chat" },
     })
-    expect(rebase(sent, saved)).toBeUndefined()
+  })
+
+  test("edits dropped while the save was on its way stay dropped", () => {
+    const sent = drafted(record, { content: "Short answers" })
+
+    expect(
+      afterSave(undefined, sent, after({ content: "Short answers" }))
+    ).toBeUndefined()
   })
 })
 

@@ -1,12 +1,7 @@
 "use client"
 
 import { Loader2Icon } from "lucide-react"
-import {
-  useEffect,
-  useEffectEvent,
-  useState,
-  useSyncExternalStore,
-} from "react"
+import { useEffect, useEffectEvent, useState } from "react"
 
 import { Failure } from "@/components/failure"
 import { Button } from "@/components/ui/button"
@@ -14,8 +9,8 @@ import { Separator } from "@/components/ui/separator"
 import { readDraft, setDraft, useDraft } from "@/hooks/use-drafts"
 import { useNow } from "@/hooks/use-now"
 import {
+  changedElsewhere,
   edit,
-  FIELDS,
   formWith,
   problemsOf,
   rebase,
@@ -51,12 +46,15 @@ export function MemoryEditor({ record, failure, onRetry, onBack }: Props) {
   const draft = useDraft(id)
   const form = formWith(record, draft)
   const [rejected, setRejected] = useState<Rejection | null>(null)
-  const save = useSave(record.namespace, id, (rejection) => {
-    setRejected(rejection)
-    focusField(rejection.field)
+  const { save, isPending } = useSave(record.namespace, id, {
+    onRejected: (rejection) => {
+      setRejected(rejection)
+      focusField(rejection.field)
+    },
+    // Save goes away once saved; the keyboard then stays in the memory.
+    onSaved: () => requestAnimationFrame(keepFocusInEditor),
   })
   const problems = problemsOf(draft?.edits ?? {})
-  const conflict = draft !== undefined && record.version > draft.version
 
   // The draft is read afresh: one event may make several edits, such as a tag added on the way out.
   const change = (patch: Partial<Form>) => {
@@ -66,21 +64,13 @@ export function MemoryEditor({ record, failure, onRetry, onBack }: Props) {
 
   // Save is never off while there are edits: a problem sends the keyboard to its field instead.
   const trySave = () => {
-    const latest = readDraft(id)
-    if (!latest || save.isPending) return
-    const found = problemsOf(latest.edits)
-    const bad = FIELDS.find((field) => found[field])
-    if (bad) {
-      focusField(bad)
-      return
-    }
-    save.mutate(
-      { record, draft: latest },
-      {
-        // Save goes away once saved; the keyboard then stays in the memory.
-        onSuccess: () => requestAnimationFrame(keepFocusInEditor),
-      }
-    )
+    const bad = save()
+    if (bad) focusField(bad)
+  }
+
+  const discard = () => {
+    setDraft(id, undefined)
+    setRejected(null)
   }
 
   // The edits move onto the version on screen and are saved like any other.
@@ -93,18 +83,18 @@ export function MemoryEditor({ record, failure, onRetry, onBack }: Props) {
     const modifier = event.metaKey || event.ctrlKey
     if (!modifier || event.altKey || event.key.toLowerCase() !== "s") return
     event.preventDefault()
+    // A field that finishes its edit on the way out, such as a tag still being typed, does so first.
+    const active = document.activeElement
+    if (active instanceof HTMLElement) {
+      active.blur()
+      active.focus()
+    }
     trySave()
   })
   useEffect(() => {
     window.addEventListener("keydown", onSaveKey)
     return () => window.removeEventListener("keydown", onSaveKey)
   }, [])
-
-  const shortcut = useSyncExternalStore(
-    noChanges,
-    () => (/Mac|iPhone|iPad/.test(navigator.userAgent) ? "⌘S" : "Ctrl+S"),
-    () => "Ctrl+S"
-  )
 
   return (
     <>
@@ -117,23 +107,16 @@ export function MemoryEditor({ record, failure, onRetry, onBack }: Props) {
         <div className="flex-1" />
         {draft && (
           <>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setDraft(id, undefined)
-                setRejected(null)
-              }}
-            >
+            <Button variant="ghost" size="sm" onClick={discard}>
               Discard
             </Button>
             <Button
               size="sm"
-              title={`Save (${shortcut})`}
-              aria-busy={save.isPending}
+              title="Save (Ctrl+S / ⌘S)"
+              aria-busy={isPending}
               onClick={trySave}
             >
-              {save.isPending && (
+              {isPending && (
                 <Loader2Icon className="animate-spin" aria-hidden />
               )}
               Save
@@ -141,14 +124,8 @@ export function MemoryEditor({ record, failure, onRetry, onBack }: Props) {
           </>
         )}
       </EditorBar>
-      {conflict && (
-        <ConflictBand
-          onLoadLatest={() => {
-            setDraft(id, undefined)
-            setRejected(null)
-          }}
-          onKeepMine={keepMine}
-        />
+      {changedElsewhere(draft, record) && (
+        <ConflictBand onLoadLatest={discard} onKeepMine={keepMine} />
       )}
       <StatusBand
         record={record}
@@ -190,6 +167,3 @@ function keepFocusInEditor() {
   const active = document.activeElement
   if (!active || active === document.body) focusField("content")
 }
-
-// The keys of Save, "⌘S" on a Mac and "Ctrl+S" elsewhere, never change while the page is open.
-const noChanges = () => () => {}

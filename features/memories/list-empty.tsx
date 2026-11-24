@@ -22,7 +22,7 @@ import { VIEWS, type View } from "@/server/bridge/protocol.ts"
 
 import { focusSearch } from "./search-box"
 import type { Counts } from "./use-rows"
-import { VIEW_NAMES } from "./view-names"
+import { VIEW_NAMES } from "@/lib/view-names"
 
 type Said = { icon: LucideIcon; title: string; text: string }
 

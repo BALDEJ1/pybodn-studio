@@ -7,7 +7,7 @@ import type { Field, Form } from "@/lib/form"
 import type { MemoryRecord } from "@/server/bridge/protocol.ts"
 
 import { ExpiryField } from "./expiry-field"
-import { FIELD_IDS } from "./field-ids"
+import { errorId, EXPIRES_LABEL_ID, FIELD_IDS, TEXT_HINT_ID } from "./field-ids"
 import { TagField } from "./tag-field"
 
 type Props = {
@@ -29,25 +29,19 @@ export function MemoryFields({
   errorOf,
   onChange,
 }: Props) {
-  const error = (field: Field) => {
-    const message = errorOf(field)
-    const id = `${FIELD_IDS[field]}-error`
+  // A refused field says so, and its reason is read out with it.
+  const describe = (field: Field, hint?: string) => {
+    const refused = errorOf(field) !== undefined
     return {
-      invalid: message !== undefined,
-      describedBy: message === undefined ? undefined : id,
-      shown: message !== undefined && (
-        <p id={id} className="mt-1 text-xs text-destructive">
-          {message}
-        </p>
-      ),
+      "aria-invalid": refused,
+      "aria-describedby":
+        [refused && errorId(field), hint].filter(Boolean).join(" ") ||
+        undefined,
     }
   }
-  const text = error("content")
-  const tags = error("tags")
-  const source = error("source")
-  const expires = error("expires")
-  const importance = error("importance")
-  const metadata = error("metadata")
+  const error = (field: Field) => (
+    <FieldError field={field} message={errorOf(field)} />
+  )
 
   return (
     <>
@@ -56,18 +50,13 @@ export function MemoryFields({
         aria-label="Memory text"
         dir="auto"
         value={form.content}
-        aria-invalid={text.invalid}
-        aria-describedby={
-          [text.describedBy, textEdited ? "memory-text-hint" : undefined]
-            .filter(Boolean)
-            .join(" ") || undefined
-        }
+        {...describe("content", textEdited ? TEXT_HINT_ID : undefined)}
         onChange={(event) => onChange({ content: event.target.value })}
         className="-mx-2.5 -mt-2 min-h-18 w-[calc(100%+1.25rem)] resize-none border-transparent bg-transparent text-base leading-6 shadow-none md:text-base dark:bg-transparent"
       />
-      {text.shown}
+      {error("content")}
       {textEdited && (
-        <p id="memory-text-hint" className="mt-1 text-xs text-muted-foreground">
+        <p id={TEXT_HINT_ID} className="mt-1 text-xs text-muted-foreground">
           Saving drops this memory&apos;s vector for search by meaning. Your app
           adds it back with embed_missing().
         </p>
@@ -93,10 +82,10 @@ export function MemoryFields({
           <TagField
             id={FIELD_IDS.tags}
             tags={form.tags}
-            describedBy={tags.describedBy}
+            {...describe("tags")}
             onChange={(next) => onChange({ tags: next })}
           />
-          {tags.shown}
+          {error("tags")}
         </div>
 
         <Label>Importance</Label>
@@ -120,7 +109,7 @@ export function MemoryFields({
               {Number(form.importance.toFixed(2))}
             </span>
           </div>
-          {importance.shown}
+          {error("importance")}
         </div>
 
         <Label htmlFor={FIELD_IDS.source}>Source</Label>
@@ -132,23 +121,22 @@ export function MemoryFields({
             placeholder="None"
             autoCapitalize="off"
             autoCorrect="off"
-            aria-invalid={source.invalid}
-            aria-describedby={source.describedBy}
+            {...describe("source")}
             onChange={(event) => onChange({ source: event.target.value })}
             className="-ml-2.5 w-[calc(100%+0.625rem)] border-transparent bg-transparent shadow-none hover:border-input dark:bg-transparent"
           />
-          {source.shown}
+          {error("source")}
         </div>
 
-        <Label id="memory-expires-label">Expires</Label>
+        <Label id={EXPIRES_LABEL_ID}>Expires</Label>
         <div>
           <ExpiryField
             id={FIELD_IDS.expires}
-            labelId="memory-expires-label"
+            labelId={EXPIRES_LABEL_ID}
             day={form.expires}
             onChange={(day) => onChange({ expires: day })}
           />
-          {expires.shown}
+          {error("expires")}
         </div>
 
         <Label htmlFor={FIELD_IDS.metadata}>Metadata</Label>
@@ -157,15 +145,23 @@ export function MemoryFields({
             id={FIELD_IDS.metadata}
             value={form.metadata}
             spellCheck={false}
-            aria-invalid={metadata.invalid}
-            aria-describedby={metadata.describedBy}
+            {...describe("metadata")}
             onChange={(event) => onChange({ metadata: event.target.value })}
             className="min-h-18 resize-y bg-muted font-mono text-xs leading-[1.125rem] md:text-xs"
           />
-          {metadata.shown}
+          {error("metadata")}
         </div>
       </div>
     </>
+  )
+}
+
+function FieldError({ field, message }: { field: Field; message?: string }) {
+  if (message === undefined) return null
+  return (
+    <p id={errorId(field)} className="mt-1 text-xs text-destructive">
+      {message}
+    </p>
   )
 }
 

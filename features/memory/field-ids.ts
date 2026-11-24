@@ -9,3 +9,9 @@ export const FIELD_IDS: Record<Field, string> = {
   expires: "memory-expires",
   metadata: "memory-metadata",
 }
+
+/** The reason a field is refused, read out with the field. */
+export const errorId = (field: Field) => `${FIELD_IDS[field]}-error`
+
+export const TEXT_HINT_ID = "memory-text-hint"
+export const EXPIRES_LABEL_ID = "memory-expires-label"

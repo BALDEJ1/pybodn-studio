@@ -1,7 +1,7 @@
 "use client"
 
 import { XIcon } from "lucide-react"
-import { useState } from "react"
+import { useState, type AriaAttributes } from "react"
 
 import { splitTyped, withTags } from "@/lib/tags"
 
@@ -9,14 +9,13 @@ type Props = {
   id: string
   tags: readonly string[]
   onChange: (tags: string[]) => void
-  describedBy?: string
-}
+} & Pick<AriaAttributes, "aria-invalid" | "aria-describedby">
 
 /**
  * The tags of a memory and a field for more. A comma or Enter finishes a tag, Backspace in the
  * empty field takes off the last one, and leaving the field keeps what was typed.
  */
-export function TagField({ id, tags, onChange, describedBy }: Props) {
+export function TagField({ id, tags, onChange, ...aria }: Props) {
   const [typed, setTyped] = useState("")
 
   const add = (text: string, rest = "") => {
@@ -52,7 +51,7 @@ export function TagField({ id, tags, onChange, describedBy }: Props) {
         autoCapitalize="off"
         autoCorrect="off"
         spellCheck={false}
-        aria-describedby={describedBy}
+        {...aria}
         onChange={(event) => {
           const { value } = event.target
           if (!value.includes(",")) setTyped(value)

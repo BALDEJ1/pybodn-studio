@@ -2,6 +2,9 @@ import { describe, expect, test } from "vitest"
 
 import { metadataText, readMetadata } from "./metadata"
 
+const TOO_LARGE =
+  "A whole number this large would lose digits. Put it in quotes to keep it as text."
+
 describe("metadata typed as JSON", () => {
   test("an object is taken as it is", () => {
     const read = readMetadata('{"channel": "web", "tries": [1, 2]}')
@@ -37,6 +40,28 @@ describe("metadata typed as JSON", () => {
       })
     }
   )
+
+  test.each([
+    ["at the top", '{"order": 1734567890123456789}'],
+    ["deep inside", '{"orders": [{"id": -1734567890123456789}]}'],
+  ])(
+    "a whole number too large to keep every digit is refused %s",
+    (_, text) => {
+      expect(readMetadata(text)).toEqual({
+        ok: false,
+        message: TOO_LARGE,
+      })
+    }
+  )
+
+  test("whole numbers up to the largest exact one, and fractions, are taken", () => {
+    const text = '{"max": 9007199254740991, "min": -42, "share": 0.5}'
+
+    expect(readMetadata(text)).toEqual({
+      ok: true,
+      value: { max: 9007199254740991, min: -42, share: 0.5 },
+    })
+  })
 
   test("a __proto__ key stays an ordinary key, and nothing else changes", () => {
     const text = '{"__proto__": {"admin": true}, "plan": "free"}'
