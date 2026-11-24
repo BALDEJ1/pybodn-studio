@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // The Python bridge and its virtual environment.
+    "bridge/**",
   ]),
 ]);
 

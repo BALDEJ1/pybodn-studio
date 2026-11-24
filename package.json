@@ -12,6 +12,7 @@
     "dev": "node server.ts",
     "build": "next build",
     "start": "node server.ts --production",
+    "seed": "uv run --project bridge --locked --no-dev --no-config python -I bridge/seed.py demo.db",
     "lint": "eslint",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx}\"",

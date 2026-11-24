@@ -30,6 +30,26 @@ npm start
 Studio uses port 3000. To use another, set `PORT`, for example `PORT=3001 npm run dev`. If the
 port is taken, Studio stops and says so rather than moving to another one.
 
+## The Python side
+
+Studio reads and writes the memory file only through pybodn itself, so the file stays as pybodn
+expects it. A small Python program, `bridge/bridge.py`, runs pybodn and answers Studio over its
+standard input and output. It needs [uv](https://docs.astral.sh/uv/), which installs Python and
+pybodn for it the first time.
+
+The bridge opens only a file that already exists and is not empty. Opening a file is also a
+write: pybodn may bring an older file up to its own format. If your application uses an older
+pybodn than the bridge, upgrade the application first.
+
+To try Studio on sample memories, make a demo file:
+
+```bash
+npm run seed
+```
+
+It writes `demo.db` and never touches a file that is already there. The page does not use the
+bridge yet; that comes in the next step.
+
 ## Safety
 
 The memory of an agent can hold personal data, so Studio keeps it on your computer.
@@ -52,6 +72,14 @@ npm test
 npm run lint
 npm run typecheck
 npm run format:check
+```
+
+And for the bridge, from the `bridge` folder:
+
+```bash
+uv run pytest
+uv run ruff check
+uv run mypy
 ```
 
 ## License
