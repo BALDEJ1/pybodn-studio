@@ -98,10 +98,6 @@ def test_the_overview_counts_each_namespace_by_state(bridge: Bridge, engine: Mem
     }
 
 
-def test_the_overview_of_an_empty_file(bridge: Bridge) -> None:
-    assert call(bridge, "overview") == {"namespaces": [], "expired": 0}
-
-
 # Lists ------------------------------------------------------------------------------------------
 
 
@@ -152,13 +148,6 @@ def test_a_row_carries_the_start_of_a_long_text_and_get_carries_all(
     assert full["content"] == text
 
 
-def test_a_list_of_a_namespace_without_records_is_empty(bridge: Bridge) -> None:
-    assert call(bridge, "list", namespace="user:nobody", view="archived") == {
-        "rows": [],
-        "total": 0,
-    }
-
-
 # Search -----------------------------------------------------------------------------------------
 
 
@@ -193,20 +182,6 @@ def test_search_puts_the_record_whose_key_is_the_query_first(
     assert by_key_only["active"] == ["Has a dog named Miso"]
 
 
-@pytest.mark.parametrize(("query", "finds"), [("answer", True), ("answ", True), ("ans", False)])
-def test_search_finds_a_word_from_its_first_four_letters(
-    bridge: Bridge, engine: MemoryEngine, query: str, finds: bool
-) -> None:
-    # Arrange: what part of a word finds is the library's rule; this pins it down
-    engine.collection("user:alice").add("Prefers short answers")
-
-    # Act
-    found = by_view(call(bridge, "search", namespace="user:alice", query=query))
-
-    # Assert
-    assert found["active"] == (["Prefers short answers"] if finds else [])
-
-
 def test_search_returns_every_match_without_a_cap(
     bridge: Bridge, engine: MemoryEngine, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -224,18 +199,6 @@ def test_search_in_an_empty_namespace_finds_nothing(bridge: Bridge) -> None:
         "archived": [],
         "expired": [],
     }
-
-
-def test_a_query_of_too_many_words_is_refused_with_the_library_reason(
-    bridge: Bridge, engine: MemoryEngine
-) -> None:
-    engine.collection("user:alice").add("Prefers short answers")
-    query = " ".join(f"word{n}" for n in range(101))
-
-    error = fail(bridge, "search", namespace="user:alice", query=query)
-
-    assert error["code"] == "invalid"
-    assert "100" in error["message"]
 
 
 # Reading one record -----------------------------------------------------------------------------

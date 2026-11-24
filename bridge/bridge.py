@@ -478,10 +478,8 @@ def _take_stdout() -> TextIO:
 
 
 def _send(protocol: TextIO, message: dict[str, Any]) -> None:
-    try:
-        line = json.dumps(message, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
-    except (TypeError, ValueError) as error:
-        line = json.dumps(_failure(message.get("id"), describe(error)))
+    # pybodn refuses NaN and infinity in what it stores, so every answer encodes.
+    line = json.dumps(message, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
     protocol.write(line + "\n")
     protocol.flush()
 

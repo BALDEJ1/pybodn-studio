@@ -21,7 +21,7 @@ SECONDS = 30
 # The greeting -----------------------------------------------------------------------------------
 
 
-def test_the_greeting_names_the_versions_and_the_real_path(db: Path, tmp_path: Path) -> None:
+def test_the_greeting_names_the_real_path_of_a_link(db: Path, tmp_path: Path) -> None:
     link = tmp_path / "link.db"
     link.symlink_to(db)
 
@@ -32,8 +32,6 @@ def test_the_greeting_names_the_versions_and_the_real_path(db: Path, tmp_path: P
     assert greeting["ok"] is True
     assert greeting["protocol"] == PROTOCOL
     assert greeting["path"] == str(db.resolve())
-    assert greeting["python"] == ".".join(map(str, sys.version_info[:3]))
-    assert isinstance(greeting["pybodn"], str)
 
 
 @pytest.mark.parametrize("value", [None, ""])

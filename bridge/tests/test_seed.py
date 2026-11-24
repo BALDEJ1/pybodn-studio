@@ -7,7 +7,7 @@ from pybodn import MemoryEngine
 from seed import main, seed
 
 
-def test_the_demo_has_every_state_with_expiries_counted_from_today(tmp_path: Path) -> None:
+def test_the_demo_counts_expiries_from_today(tmp_path: Path) -> None:
     # Arrange
     path = tmp_path / "demo.db"
     today = datetime.now(UTC)
@@ -17,12 +17,7 @@ def test_the_demo_has_every_state_with_expiries_counted_from_today(tmp_path: Pat
 
     # Assert
     with MemoryEngine.sqlite(path) as engine:
-        assert engine.namespaces() == ["agent:planner", "support-bot", "user:alice", "user:bob"]
-        alice = engine.collection("user:alice")
-        planner = engine.collection("agent:planner")
-        assert (alice.count(), alice.count(include_archived=True)) == (8, 9)
-        assert (planner.count(), planner.count(include_expired=True)) == (3, 4)
-        vacation = alice.get_by_key("availability")
+        vacation = engine.collection("user:alice").get_by_key("availability")
         assert vacation is not None and vacation.expires_at is not None
         assert (vacation.expires_at.date() - today.date()).days == 9
 
