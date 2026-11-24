@@ -8,6 +8,7 @@ import { randomBytes } from "node:crypto"
 import { EventEmitter } from "node:events"
 import type { Server } from "node:http"
 
+import { stopBridge } from "./server/bridge/shutdown.ts"
 import { readPort } from "./server/config.ts"
 import { createStudioServer, listenOnLoopback } from "./server/http.ts"
 
@@ -34,6 +35,13 @@ const app = next({
 })
 await app.prepare()
 const handle = app.getRequestHandler()
+
+// Ctrl+C or a stop from the system: let the bridge close the memory file before Studio ends.
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.once(signal, () => {
+    void stopBridge().finally(() => process.exit(0))
+  })
+}
 
 const server = createStudioServer({
   token,

@@ -1,0 +1,83 @@
+import { type ChildProcess, spawn, spawnSync } from "node:child_process"
+import { once } from "node:events"
+import { createServer } from "node:net"
+
+const ROOT = process.cwd()
+const LINK = /http:\/\/127\.0\.0\.1:\d+\/\?token=[\w-]+/
+const START_LIMIT = 60_000
+
+export type Studio = { link: string; stop: () => Promise<void> }
+
+/** Starts the built Studio on a free port, on `db` or with no PYBODN_DB at all. */
+export async function startStudio(db: string | undefined): Promise<Studio> {
+  const environ = Object.fromEntries(
+    Object.entries(process.env).filter(([name]) => name !== "PYBODN_DB")
+  ) as NodeJS.ProcessEnv
+  const port = String(await freePort())
+  const child = spawn(process.execPath, ["server.ts", "--production"], {
+    cwd: ROOT,
+    env: db
+      ? { ...environ, PORT: port, PYBODN_DB: db }
+      : { ...environ, PORT: port },
+    stdio: ["ignore", "pipe", "inherit"],
+  })
+  const link = await linkOf(child)
+  return { link, stop: () => stop(child) }
+}
+
+/** Writes the demo memories to a new file at `path`. */
+export function seed(path: string): void {
+  const run = spawnSync(
+    "uv",
+    [
+      "run",
+      "--project",
+      "bridge",
+      "--locked",
+      "--no-dev",
+      "--no-config",
+    ].concat(["python", "-I", "bridge/seed.py", path]),
+    { cwd: ROOT, encoding: "utf8" }
+  )
+  if (run.status !== 0) throw new Error(`seed failed: ${run.stderr}`)
+}
+
+function linkOf(child: ChildProcess): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let printed = ""
+    const timer = setTimeout(
+      () => reject(new Error(`Studio printed no link: ${printed}`)),
+      START_LIMIT
+    )
+    child.stdout?.on("data", (chunk: Buffer) => {
+      printed += chunk.toString("utf8")
+      const link = LINK.exec(printed)?.[0]
+      if (link) {
+        clearTimeout(timer)
+        resolve(link)
+      }
+    })
+    child.once("exit", (code) => {
+      clearTimeout(timer)
+      reject(new Error(`Studio stopped with ${code}: ${printed}`))
+    })
+  })
+}
+
+async function stop(child: ChildProcess): Promise<void> {
+  if (child.exitCode !== null || child.signalCode !== null) return
+  child.kill("SIGTERM")
+  await once(child, "exit")
+}
+
+function freePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const server = createServer()
+    server.once("error", reject)
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address()
+      const port = typeof address === "object" && address ? address.port : 0
+      server.close(() => resolve(port))
+    })
+  })
+}

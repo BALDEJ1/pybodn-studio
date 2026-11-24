@@ -4,16 +4,17 @@ A local web screen for reading and editing the memory file of
 [pybodn](https://github.com/BALDEJ1/pybodn). It is a small open-source app that you clone, fork
 or copy. It is not published to npm or PyPI.
 
-The first version is being built in pull requests. Right now Studio starts and shows a
-placeholder page; the memory screen comes in the next steps.
+The first version is being built in pull requests. Right now Studio opens the memory file and
+lists its namespaces with their counts; the memory screen comes in the next steps.
 
 ## Run it
 
-You need Node.js 22.18 or later.
+You need Node.js 22.18 or later and [uv](https://docs.astral.sh/uv/). Point `PYBODN_DB` at the
+memory file of your application:
 
 ```bash
 npm install
-npm run dev
+PYBODN_DB=path/to/memory.db npm run dev
 ```
 
 Studio prints a link such as `http://127.0.0.1:3000/?token=…`. Open that link: it signs your
@@ -27,6 +28,9 @@ npm run build
 npm start
 ```
 
+If something stops Studio from opening the file, such as a wrong path, the page says what it is
+and how to fix it. The first start installs Python and pybodn, which can take a minute.
+
 Studio uses port 3000. To use another, set `PORT`, for example `PORT=3001 npm run dev`. If the
 port is taken, Studio stops and says so rather than moving to another one.
 
@@ -34,8 +38,11 @@ port is taken, Studio stops and says so rather than moving to another one.
 
 Studio reads and writes the memory file only through pybodn itself, so the file stays as pybodn
 expects it. A small Python program, `bridge/bridge.py`, runs pybodn and answers Studio over its
-standard input and output. It needs [uv](https://docs.astral.sh/uv/), which installs Python and
-pybodn for it the first time.
+standard input and output. uv installs Python and pybodn for it the first time.
+
+To use a Python of your own that already has pybodn 1.2 or later, set `PYBODN_PYTHON` to it.
+Studio runs that program, so set it only to a Python you trust. The bridge gets only the variables
+it needs, such as `PATH`, `HOME` and `PYBODN_DB`, and never the rest of your environment.
 
 The bridge opens only a file that already exists and is not empty. Opening a file is also a
 write: pybodn may bring an older file up to its own format. If your application uses an older
@@ -47,8 +54,11 @@ To try Studio on sample memories, make a demo file:
 npm run seed
 ```
 
-It writes `demo.db` and never touches a file that is already there. The page does not use the
-bridge yet; that comes in the next step.
+It writes `demo.db` and never touches a file that is already there. Then start Studio on it:
+
+```bash
+PYBODN_DB=demo.db npm run dev
+```
 
 ## Safety
 
@@ -72,6 +82,14 @@ npm test
 npm run lint
 npm run typecheck
 npm run format:check
+```
+
+The browser scenarios run on the built app. Install their browser once, then:
+
+```bash
+npx playwright install --only-shell chromium
+npm run build
+npm run e2e
 ```
 
 And for the bridge, from the `bridge` folder:
