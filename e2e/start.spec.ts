@@ -46,12 +46,11 @@ test("a missing file is never created, and once it exists Studio reads it", asyn
   seed(db)
   await page.getByRole("button", { name: "Try again" }).click()
 
-  for (const name of [
+  const namespaces = page.getByRole("navigation", { name: "Namespaces" })
+  await expect(namespaces.getByRole("button")).toHaveText([
     "agent:planner",
     "support-bot",
     "user:alice",
     "user:bob",
-  ]) {
-    await expect(page.getByText(name, { exact: true })).toBeVisible()
-  }
+  ])
 })
