@@ -7,13 +7,17 @@ const FINAL: ReadonlySet<string> = new Set(["invalid", "not_found"])
 
 type Props = { error: Error; onRetry: () => void; className?: string }
 
+/** Whether trying the same request again can go another way. */
+export function canRetry(error: Error): boolean {
+  return !(error instanceof ApiError && FINAL.has(error.code))
+}
+
 /** A read that failed: the reason, and "Retry" when trying again can help. */
 export function Failure({ error, onRetry, className }: Props) {
-  const canRetry = !(error instanceof ApiError && FINAL.has(error.code))
   return (
     <Alert variant="destructive" className={className}>
       <AlertDescription>{error.message}</AlertDescription>
-      {canRetry && (
+      {canRetry(error) && (
         <AlertAction>
           <Button variant="outline" size="sm" onClick={onRetry}>
             Retry

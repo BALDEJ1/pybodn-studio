@@ -1,4 +1,4 @@
-import { queryOptions } from "@tanstack/react-query"
+import { queryOptions, type QueryKey } from "@tanstack/react-query"
 
 import type { View } from "@/server/bridge/protocol.ts"
 
@@ -40,9 +40,20 @@ export const searchQuery = (namespace: string, query: string) =>
     ...FRESH,
   })
 
+export const memoryKey = (namespace: string, id: string) =>
+  ["memory", namespace, id] as const
+
 export const memoryQuery = (namespace: string, id: string) =>
   queryOptions({
-    queryKey: ["memory", namespace, id],
+    queryKey: memoryKey(namespace, id),
     queryFn: () => callMemory("get", { namespace, id }),
     ...FRESH,
   })
+
+/**
+ * The reads a change in `namespace` can leave out of date: the counts of every namespace, and the
+ * tabs and searches of this one. The memory changed comes back with the change itself.
+ */
+export function staleAfterChange(namespace: string): QueryKey[] {
+  return [overviewQuery.queryKey, ["list", namespace], ["search", namespace]]
+}

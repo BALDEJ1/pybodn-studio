@@ -82,6 +82,13 @@ describe("a request from the page", () => {
       { method: "update", params: { ...target, changes: { content: "c" } } },
     ],
     [
+      "metadata that is not an object",
+      {
+        method: "update",
+        params: { ...target, expected_version: 1, changes: { metadata: [1] } },
+      },
+    ],
+    [
       "a view that does not exist",
       { method: "list", params: { namespace: "a", view: "deleted" } },
     ],
@@ -115,6 +122,31 @@ describe("a request from the page", () => {
       body: { ok: true, result: { version: 4 } },
     })
     expect(bridge.call).toHaveBeenCalledWith("update", params, undefined)
+  })
+
+  test("metadata with a __proto__ key reaches the bridge as typed, and changes nothing else", async () => {
+    bridge.call.mockResolvedValue({ version: 4 })
+    // As the server reads it from the request's body.
+    const body: unknown = JSON.parse(
+      JSON.stringify({
+        method: "update",
+        params: { ...target, expected_version: 3, changes: {} },
+      }).replace(
+        '"changes":{}',
+        '"changes":{"metadata":{"__proto__":{"admin":true},"plan":"free"}}'
+      )
+    )
+
+    await runRequest(body)
+
+    const sent = bridge.call.mock.calls[0][1] as {
+      changes: { metadata: Record<string, unknown> }
+    }
+    expect(JSON.stringify(sent.changes.metadata)).toBe(
+      '{"__proto__":{"admin":true},"plan":"free"}'
+    )
+    expect(Object.getPrototypeOf(sent.changes.metadata)).toBe(Object.prototype)
+    expect(({} as Record<string, unknown>).admin).toBeUndefined()
   })
 
   test("erasing may take 15 minutes; the rest keep the usual limit", async () => {

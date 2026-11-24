@@ -1,6 +1,7 @@
 import { type ChildProcess, spawn, spawnSync } from "node:child_process"
 import { once } from "node:events"
 import { createServer } from "node:net"
+import path from "node:path"
 
 import { bridgeCommand } from "../server/bridge/command.ts"
 
@@ -38,6 +39,27 @@ export function seed(path: string): void {
     encoding: "utf8",
   })
   if (run.status !== 0) throw new Error(`seed failed: ${run.stderr}`)
+}
+
+/**
+ * Changes a memory in `db` from a Python process of its own, as another program using the file
+ * would, with the same pybodn as Studio. `changes` are fields of `update`.
+ */
+export function changeElsewhere(
+  db: string,
+  namespace: string,
+  id: string,
+  changes: Record<string, unknown>
+): void {
+  // The script sits in e2e/, beside these scenarios, not among the bridge's own scripts.
+  const script = path.join("..", "e2e", "change.py")
+  const { command, args, env } = bridgeCommand(process.env, ROOT, script)
+  const run = spawnSync(
+    command,
+    [...args, db, namespace, id, JSON.stringify(changes)],
+    { cwd: ROOT, env: env as NodeJS.ProcessEnv, encoding: "utf8" }
+  )
+  if (run.status !== 0) throw new Error(`change failed: ${run.stderr}`)
 }
 
 function linkOf(child: ChildProcess): Promise<string> {

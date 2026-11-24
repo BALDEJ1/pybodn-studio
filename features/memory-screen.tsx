@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query"
 
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
+import { useLeaveWarning } from "@/hooks/use-drafts"
 import { usePlace } from "@/hooks/use-place"
 import { settle, shownId, toNamespace } from "@/lib/place"
 import { overviewQuery } from "@/lib/queries"
@@ -19,6 +20,7 @@ import { NamespaceSidebar } from "./namespaces/namespace-sidebar"
  */
 export function MemoryScreen({ path }: { path: string }) {
   const { place: asked, go, back } = usePlace()
+  useLeaveWarning()
   const overview = useQuery(overviewQuery)
   const spaces = overview.data?.namespaces
   const place = spaces

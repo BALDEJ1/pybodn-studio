@@ -2,8 +2,10 @@ import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 
 import "./globals.css"
+import { Announcer } from "@/components/announcer"
 import { QueryProvider } from "@/components/query-provider"
 import { ThemeProvider } from "@/components/theme-provider"
+import { Toaster } from "@/components/toaster"
 import { cn } from "@/lib/utils"
 
 const fontSans = Geist({ subsets: ["latin"], variable: "--font-sans" })
@@ -33,6 +35,8 @@ export default function RootLayout({
       <body>
         <ThemeProvider>
           <QueryProvider>{children}</QueryProvider>
+          <Toaster />
+          <Announcer />
         </ThemeProvider>
       </body>
     </html>

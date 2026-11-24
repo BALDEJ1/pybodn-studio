@@ -1,5 +1,7 @@
 import { Fragment } from "react"
 
+import { useDraft } from "@/hooks/use-drafts"
+
 import { cn } from "@/lib/utils"
 import { changedLabel, dayLabel } from "@/lib/when"
 import type { Row } from "@/server/bridge/protocol.ts"
@@ -11,6 +13,7 @@ type Props = { row: Row; now: Date; selected: boolean; onPick: () => void }
  * Each value keeps its own text direction, so a right-to-left mark in one cannot turn another.
  */
 export function MemoryRow({ row, now, selected, onPick }: Props) {
+  const unsaved = useDraft(row.id) !== undefined
   const facts = [
     row.key && <bdi className="font-mono">{row.key}</bdi>,
     row.tags.length > 0 &&
@@ -49,6 +52,14 @@ export function MemoryRow({ row, now, selected, onPick }: Props) {
               </Fragment>
             ))}
           </span>
+          {unsaved && (
+            <span
+              role="img"
+              aria-label="Unsaved changes"
+              title="Unsaved changes"
+              className="size-1.5 shrink-0 self-center rounded-full bg-foreground"
+            />
+          )}
           <span className="shrink-0 tabular-nums">
             {changedLabel(new Date(row.updated_at), now)}
           </span>
