@@ -1,0 +1,52 @@
+# The Python side of Studio: bridge.py, the demo file maker and their tests. It is not a
+# package; `uv run --project bridge` runs the scripts in this environment.
+[project]
+name = "pybodn-studio-bridge"
+version = "0.0.0"
+requires-python = ">=3.12"
+# Until pybodn 1.2.0 is on PyPI, the commit that adds MemoryEngine.namespaces().
+dependencies = [
+    "pybodn @ git+https://github.com/BALDEJ1/pybodn@2f5120c3ae3f572a9b70098132b362dfa2ccfb59",
+]
+
+[dependency-groups]
+dev = [
+    "coverage>=7.17.3",
+    "mypy>=2.4.1",
+    "pytest>=9.2.0",
+    "ruff>=0.17.5",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+
+[tool.mypy]
+strict = true
+files = ["bridge.py", "seed.py", "tests"]
+
+[tool.pytest]
+minversion = "9.0"
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = ["-ra", "--strict-markers", "--strict-config"]
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+branch = true
+source = ["bridge", "seed"]
+# The protocol tests run the bridge as Node does, in a process of its own.
+patch = ["subprocess"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 95
