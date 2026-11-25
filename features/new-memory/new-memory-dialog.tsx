@@ -19,11 +19,12 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { ApiError } from "@/lib/api"
 import {
+  failureOf,
   isReady,
   keyToCheck,
-  newFieldOf,
   outcomeOf,
   requestOf,
+  type Failure,
   type NewField,
   type NewMemory,
   type Outcome,
@@ -64,21 +65,21 @@ const ACTIONS: Record<Outcome, string> = {
   replace: "Replace memory",
 }
 
-type Failure = { field: NewField | null; message: string }
-
 /** A new memory, which creates its namespace when that is new, or replaces the memory with its key. */
-export function NewMemoryDialog({ opening, onClose, ...rest }: Props) {
+export function NewMemoryDialog({ opening, onClose, onAdded, ...rest }: Props) {
   // The words stay while the dialog fades out.
   const [shown, setShown] = useState<Opening>("memory")
   if (opening !== null && opening !== shown) setShown(opening)
   const namespaceRef = useRef<HTMLInputElement>(null)
   const textRef = useRef<HTMLTextAreaElement>(null)
+  const add = useAdd(onAdded)
 
   return (
     <Dialog
       open={opening !== null}
       onOpenChange={(open) => {
-        if (!open) onClose()
+        // It stays open until the memory is added or refused, so the answer is never missed.
+        if (!open && !add.isPending) onClose()
       }}
     >
       <DialogContent
@@ -89,6 +90,7 @@ export function NewMemoryDialog({ opening, onClose, ...rest }: Props) {
           opening={shown}
           namespaceRef={namespaceRef}
           textRef={textRef}
+          add={add}
           {...rest}
         />
       </DialogContent>
@@ -96,8 +98,9 @@ export function NewMemoryDialog({ opening, onClose, ...rest }: Props) {
   )
 }
 
-type FormProps = Omit<Props, "opening" | "onClose"> & {
+type FormProps = Omit<Props, "opening" | "onClose" | "onAdded"> & {
   opening: Opening
+  add: ReturnType<typeof useAdd>
   namespaceRef: RefObject<HTMLInputElement | null>
   textRef: RefObject<HTMLTextAreaElement | null>
 }
@@ -106,7 +109,7 @@ function NewMemoryForm({
   opening,
   namespaces,
   current,
-  onAdded,
+  add,
   namespaceRef,
   textRef,
 }: FormProps) {
@@ -124,7 +127,6 @@ function NewMemoryForm({
   })
   const owner = checked ? (lookup.data ?? null) : null
   const outcome = outcomeOf(memory, namespaces, owner)
-  const add = useAdd(onAdded)
   const ready = isReady(memory) && !lookup.isLoading && !add.isPending
 
   const change = (patch: Partial<NewMemory>) => {
@@ -139,12 +141,18 @@ function NewMemoryForm({
       { request: requestOf(memory, outcome), outcome },
       {
         onError: (error) => {
-          const taken = error instanceof ApiError && error.code === "conflict"
+          const code = error instanceof ApiError ? error.code : null
           // Someone gave the key to a memory meanwhile: the dialog shows it, to replace or not.
-          if (taken) void lookup.refetch()
-          setFailure(
-            taken ? { field: "key", message: TAKEN } : failureOf(error)
-          )
+          if (code === "duplicate_key") void lookup.refetch()
+          const failed = failureOf(code, error.message)
+          setFailure(failed)
+          // The keyboard goes to the field refused, which then reads out why.
+          const { field } = failed
+          if (field) {
+            requestAnimationFrame(() =>
+              document.getElementById(IDS[field])?.focus()
+            )
+          }
         },
       }
     )
@@ -253,7 +261,11 @@ function NewMemoryForm({
       </div>
 
       <DialogFooter>
-        <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
+        <DialogClose
+          render={<Button variant="outline" disabled={add.isPending} />}
+        >
+          Cancel
+        </DialogClose>
         <Button type="submit" disabled={!ready} aria-busy={add.isPending}>
           {add.isPending && (
             <Loader2Icon className="animate-spin" aria-hidden />
@@ -263,16 +275,6 @@ function NewMemoryForm({
       </DialogFooter>
     </form>
   )
-}
-
-const TAKEN = "Another memory took this key just now."
-
-function failureOf(error: Error): Failure {
-  const field =
-    error instanceof ApiError && error.code === "invalid"
-      ? newFieldOf(error.message)
-      : null
-  return { field, message: error.message }
 }
 
 /** The memory a new one with this key replaces, and what replacing it resets. */

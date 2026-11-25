@@ -81,3 +81,15 @@ const NAMED: Readonly<Record<string, NewField>> = {
 export function newFieldOf(message: string): NewField | null {
   return fieldNamed(message, NAMED)
 }
+
+/** A refusal to add, under the field it is about, or over the form when it is about none. */
+export type Failure = { field: NewField | null; message: string }
+
+export const TAKEN = "Another memory took this key just now."
+
+/** Where a refusal shows, from the code and reason the server gave. */
+export function failureOf(code: string | null, message: string): Failure {
+  if (code === "duplicate_key") return { field: "key", message: TAKEN }
+  const field = code === "invalid" ? newFieldOf(message) : null
+  return { field, message }
+}

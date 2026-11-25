@@ -12,14 +12,15 @@ import {
   rows,
   tab,
 } from "./pages"
-import { seed, startStudio, type Studio } from "./studio"
+import { addElsewhere, seed, startStudio, type Studio } from "./studio"
 
 let folder: string
+let db: string
 let studio: Studio
 
 test.beforeEach(async () => {
   folder = mkdtempSync(path.join(tmpdir(), "pybodn-studio-"))
-  const db = path.join(folder, "memory.db")
+  db = path.join(folder, "memory.db")
   seed(db)
   studio = await startStudio(db)
 })
@@ -86,6 +87,35 @@ test("a key an archived memory holds: the dialog shows that memory, and replacin
   expect(new URL(page.url()).searchParams.get("id")).toBe(id)
   await tab(page, "Archived").click()
   await expect(rows(page)).toHaveCount(0)
+})
+
+test("a key another program takes while the dialog is open: adding is refused, and the dialog shows the memory that took it", async ({
+  page,
+}) => {
+  await page.goto(studio.link)
+  await openNamespace(page, "user:bob")
+  await page.getByRole("button", { name: "New memory" }).click()
+  const dialog = page.getByRole("dialog", { name: "New memory" })
+  await field(dialog, "Memory").fill("Prefers calls to emails")
+  await field(dialog, "Key").fill("contact-way")
+  const add = dialog.getByRole("button", { name: "Add memory" })
+  await expect(add).toBeEnabled()
+
+  addElsewhere(db, "user:bob", {
+    content: "Prefers chat to calls",
+    key: "contact-way",
+  })
+  await add.click()
+
+  await expect(field(dialog, "Key")).toBeFocused()
+  await expect(dialog.getByText("Prefers chat to calls")).toBeVisible()
+  await dialog.getByRole("button", { name: "Replace memory" }).click()
+  await expect(dialog).toBeHidden()
+  await expect(memoryText(page)).toHaveValue("Prefers calls to emails")
+  // Three memories before, the one the other program added, and no fifth beside it.
+  await expect(
+    page.getByRole("button", { name: "user:bob, 4 active" })
+  ).toBeVisible()
 })
 
 function field(dialog: ReturnType<Page["getByRole"]>, name: string) {

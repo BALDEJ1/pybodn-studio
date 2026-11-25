@@ -3,10 +3,12 @@ import { describe, expect, test } from "vitest"
 import type { MemoryRecord } from "@/server/bridge/protocol.ts"
 
 import {
+  failureOf,
   isReady,
   keyToCheck,
   newFieldOf,
   outcomeOf,
+  TAKEN,
   requestOf,
   type NewMemory,
 } from "./new-memory"
@@ -151,5 +153,30 @@ describe("what the library would refuse in a new memory", () => {
 
   test("a reason that names no field of the dialog belongs to none", () => {
     expect(newFieldOf("importance must be a number from 0 to 1")).toBeNull()
+  })
+})
+
+describe("a refusal to add", () => {
+  test("of a key taken meanwhile shows under the key", () => {
+    const message = "key 'drink' is already used in namespace 'user:alice'"
+
+    expect(failureOf("duplicate_key", message)).toEqual({
+      field: "key",
+      message: TAKEN,
+    })
+  })
+
+  test("of a field shows under that field, in the library's words", () => {
+    const message = "tag must not contain a NUL character"
+
+    expect(failureOf("invalid", message)).toEqual({ field: "tags", message })
+  })
+
+  test.each([
+    ["busy", "the file is busy"],
+    ["invalid", "importance must be a number from 0 to 1"],
+    [null, "Failed to fetch"],
+  ])("with the code %s shows over the form", (code, message) => {
+    expect(failureOf(code, message)).toEqual({ field: null, message })
   })
 })

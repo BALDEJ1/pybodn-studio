@@ -59,6 +59,8 @@ export const keyOwnerQuery = (namespace: string, key: string) =>
   queryOptions({
     queryKey: ["key_owner", namespace, key],
     queryFn: () => callMemory("key_owner", { namespace, key }),
+    // What the person confirms by replacing is the memory as it is now.
+    ...FRESH,
   })
 
 /**

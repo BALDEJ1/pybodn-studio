@@ -51,15 +51,33 @@ export function changeElsewhere(
   id: string,
   changes: Record<string, unknown>
 ): void {
+  elsewhere(db, namespace, "update", { id, ...changes })
+}
+
+/** Adds a memory to `db` as another program would. `fields` are those of `add`. */
+export function addElsewhere(
+  db: string,
+  namespace: string,
+  fields: { content: string } & Record<string, unknown>
+): void {
+  elsewhere(db, namespace, "add", fields)
+}
+
+function elsewhere(
+  db: string,
+  namespace: string,
+  method: "add" | "update",
+  fields: Record<string, unknown>
+): void {
   // The script sits in e2e/, beside these scenarios, not among the bridge's own scripts.
   const script = path.join("..", "e2e", "change.py")
   const { command, args, env } = bridgeCommand(process.env, ROOT, script)
   const run = spawnSync(
     command,
-    [...args, db, namespace, id, JSON.stringify(changes)],
+    [...args, db, namespace, method, JSON.stringify(fields)],
     { cwd: ROOT, env: env as NodeJS.ProcessEnv, encoding: "utf8" }
   )
-  if (run.status !== 0) throw new Error(`change failed: ${run.stderr}`)
+  if (run.status !== 0) throw new Error(`${method} failed: ${run.stderr}`)
 }
 
 function linkOf(child: ChildProcess): Promise<string> {
