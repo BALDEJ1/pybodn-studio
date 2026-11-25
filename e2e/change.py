@@ -1,8 +1,10 @@
-"""Change a memory from a process of its own, as another program that uses the file would.
+"""Change a namespace from a process of its own, as another program that uses the file would.
 
-    uv run --project bridge python -I e2e/change.py FILE NAMESPACE ID '{"tags": ["travel"]}'
+    uv run --project bridge python -I e2e/change.py FILE NAMESPACE update '{"id": "…", "tags": []}'
+    uv run --project bridge python -I e2e/change.py FILE NAMESPACE add '{"content": "…"}'
 
-The changes are the fields to give ``update``, as JSON. No version is passed: the change wins.
+The fields are given by name to the collection's ``add`` or ``update``. No version is passed to
+``update``: the change wins.
 """
 
 from __future__ import annotations
@@ -12,11 +14,15 @@ import sys
 
 from pybodn import MemoryEngine
 
+METHODS = frozenset({"add", "update"})
+
 
 def main(argv: list[str]) -> int:
-    path, namespace, memory_id, changes = argv
+    path, namespace, method, fields = argv
+    if method not in METHODS:
+        raise SystemExit(f"method must be one of {sorted(METHODS)}, not {method!r}")
     with MemoryEngine.sqlite(path) as engine:
-        engine.collection(namespace).update(memory_id, **json.loads(changes))
+        getattr(engine.collection(namespace), method)(**json.loads(fields))
     return 0
 
 

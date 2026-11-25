@@ -15,7 +15,7 @@ import {
   type Draft,
   type Field,
 } from "@/lib/form"
-import { memoryKey, staleAfterChange } from "@/lib/queries"
+import { memoryKey, refresh, staleAfterChange } from "@/lib/queries"
 import { VIEW_NAMES } from "@/lib/view-names"
 import type { MemoryRecord } from "@/server/bridge/protocol.ts"
 
@@ -57,7 +57,7 @@ export function useSave(
     onSuccess: (saved, { record, draft }) => {
       client.setQueryData(key, saved)
       setDraft(id, afterSave(readDraft(id), draft, saved))
-      refresh(staleAfterChange(namespace))
+      void refresh(client, staleAfterChange(namespace))
       if (saved.status === record.status) announce("Saved.")
       else notify(`Saved. It is now under ${VIEW_NAMES[saved.status]}.`)
       onSaved()
@@ -66,12 +66,12 @@ export function useSave(
       const code = error instanceof ApiError ? error.code : null
       if (code === "conflict") {
         // The newer version comes in, and the editor offers to keep or drop the edits.
-        refresh([key])
+        void refresh(client, [key])
         announce("Not saved: this memory changed elsewhere.")
         return
       }
       if (code === "not_found") {
-        refresh([key, ...staleAfterChange(namespace)])
+        void refresh(client, [key, ...staleAfterChange(namespace)])
         return
       }
       const field = code === "invalid" ? fieldOf(error.message) : null
@@ -85,10 +85,6 @@ export function useSave(
       )
     },
   })
-
-  function refresh(keys: readonly (readonly unknown[])[]) {
-    for (const queryKey of keys) void client.invalidateQueries({ queryKey })
-  }
 
   /**
    * Saves the draft as it is now, on the memory as it is now. A field the library would refuse is

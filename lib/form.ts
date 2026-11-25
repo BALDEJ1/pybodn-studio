@@ -2,6 +2,7 @@ import type { MemoryRecord, Params } from "@/server/bridge/protocol.ts"
 
 import { dayOf, momentOf } from "./expiry"
 import { metadataText, readMetadata } from "./metadata"
+import { fieldNamed } from "./reason"
 
 /** The fields of the editor, as the person sees and types them. */
 export type Form = {
@@ -137,7 +138,6 @@ export function problemsOf(
   }
 }
 
-// The library starts each of its reasons with the name of the field it refused.
 const NAMED: Readonly<Record<string, Field>> = {
   content: "content",
   tag: "tags",
@@ -150,8 +150,7 @@ const NAMED: Readonly<Record<string, Field>> = {
 
 /** The field a reason of the library is about, to show it under that field. */
 export function fieldOf(message: string): Field | null {
-  const name = message.split(" ", 1)[0]
-  return Object.hasOwn(NAMED, name) ? NAMED[name] : null
+  return fieldNamed(message, NAMED)
 }
 
 function draftOf(

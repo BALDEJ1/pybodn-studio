@@ -1,6 +1,7 @@
 "use client"
 
 import { useQuery } from "@tanstack/react-query"
+import { useState } from "react"
 
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { useLeaveWarning } from "@/hooks/use-drafts"
@@ -13,6 +14,7 @@ import { MemoryList } from "./memories/memory-list"
 import { useRows } from "./memories/use-rows"
 import { MemoryPane } from "./memory/memory-pane"
 import { NamespaceSidebar } from "./namespaces/namespace-sidebar"
+import { NewMemoryDialog, type Opening } from "./new-memory/new-memory-dialog"
 
 /**
  * The namespaces of the file, the memories of one, and the memory picked. Below 1024 px one pane
@@ -23,12 +25,9 @@ export function MemoryScreen({ path }: { path: string }) {
   useLeaveWarning()
   const overview = useQuery(overviewQuery)
   const spaces = overview.data?.namespaces
-  const place = spaces
-    ? settle(
-        asked,
-        spaces.map((space) => space.name)
-      )
-    : asked
+  const names = spaces?.map((space) => space.name) ?? []
+  const place = spaces ? settle(asked, names) : asked
+  const [opening, setOpening] = useState<Opening | null>(null)
   // Nothing is read from a namespace before the file says which ones it has.
   const rows = useRows(spaces ? place.namespace : null, place.view, place.query)
   const loading = !spaces || (place.namespace !== null && !rows.rows)
@@ -50,6 +49,7 @@ export function MemoryScreen({ path }: { path: string }) {
         loading={overview.isPending}
         current={place.namespace}
         onPick={(name) => go(toNamespace(name))}
+        onNewNamespace={() => setOpening("namespace")}
       />
       <SidebarInset className="h-svh flex-row overflow-hidden">
         <MemoryList
@@ -64,6 +64,7 @@ export function MemoryScreen({ path }: { path: string }) {
           onRetry={() =>
             void (overview.error ? overview.refetch() : rows.read.refetch())
           }
+          onNew={setOpening}
         />
         <MemoryPane
           className={cn(!picked && "max-lg:hidden")}
@@ -72,6 +73,17 @@ export function MemoryScreen({ path }: { path: string }) {
           onBack={() => back({ ...place, id: null })}
         />
       </SidebarInset>
+      <NewMemoryDialog
+        opening={opening}
+        namespaces={names}
+        current={place.namespace}
+        onClose={() => setOpening(null)}
+        onAdded={(record) => {
+          setOpening(null)
+          // The memory opens, on Active, where it now is.
+          go({ ...toNamespace(record.namespace), id: record.id })
+        }}
+      />
     </SidebarProvider>
   )
 }

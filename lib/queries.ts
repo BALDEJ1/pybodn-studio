@@ -1,4 +1,8 @@
-import { queryOptions, type QueryKey } from "@tanstack/react-query"
+import {
+  queryOptions,
+  type QueryClient,
+  type QueryKey,
+} from "@tanstack/react-query"
 
 import type { View } from "@/server/bridge/protocol.ts"
 
@@ -50,10 +54,29 @@ export const memoryQuery = (namespace: string, id: string) =>
     ...FRESH,
   })
 
+/** The memory that holds `key` in `namespace`, archived and expired ones included, or null. */
+export const keyOwnerQuery = (namespace: string, key: string) =>
+  queryOptions({
+    queryKey: ["key_owner", namespace, key],
+    queryFn: () => callMemory("key_owner", { namespace, key }),
+    // What the person confirms by replacing is the memory as it is now.
+    ...FRESH,
+  })
+
 /**
  * The reads a change in `namespace` can leave out of date: the counts of every namespace, and the
  * tabs and searches of this one. The memory changed comes back with the change itself.
  */
 export function staleAfterChange(namespace: string): QueryKey[] {
   return [overviewQuery.queryKey, ["list", namespace], ["search", namespace]]
+}
+
+/** Reads `keys` again; it settles once those on screen are back. */
+export async function refresh(
+  client: QueryClient,
+  keys: readonly QueryKey[]
+): Promise<void> {
+  await Promise.all(
+    keys.map((queryKey) => client.invalidateQueries({ queryKey }))
+  )
 }

@@ -1,4 +1,9 @@
-import { type ChildProcess, spawn, spawnSync } from "node:child_process"
+import {
+  type ChildProcess,
+  spawn,
+  spawnSync,
+  type SpawnSyncReturns,
+} from "node:child_process"
 import { once } from "node:events"
 import { createServer } from "node:net"
 import path from "node:path"
@@ -38,7 +43,7 @@ export function seed(path: string): void {
     env: env as NodeJS.ProcessEnv,
     encoding: "utf8",
   })
-  if (run.status !== 0) throw new Error(`seed failed: ${run.stderr}`)
+  check(run, "seed")
 }
 
 /**
@@ -51,15 +56,42 @@ export function changeElsewhere(
   id: string,
   changes: Record<string, unknown>
 ): void {
+  elsewhere(db, namespace, "update", { id, ...changes })
+}
+
+/** Adds a memory to `db` as another program would. `fields` are those of `add`. */
+export function addElsewhere(
+  db: string,
+  namespace: string,
+  fields: { content: string } & Record<string, unknown>
+): void {
+  elsewhere(db, namespace, "add", fields)
+}
+
+function elsewhere(
+  db: string,
+  namespace: string,
+  method: "add" | "update",
+  fields: Record<string, unknown>
+): void {
   // The script sits in e2e/, beside these scenarios, not among the bridge's own scripts.
   const script = path.join("..", "e2e", "change.py")
   const { command, args, env } = bridgeCommand(process.env, ROOT, script)
   const run = spawnSync(
     command,
-    [...args, db, namespace, id, JSON.stringify(changes)],
+    [...args, db, namespace, method, JSON.stringify(fields)],
     { cwd: ROOT, env: env as NodeJS.ProcessEnv, encoding: "utf8" }
   )
-  if (run.status !== 0) throw new Error(`change failed: ${run.stderr}`)
+  check(run, method)
+}
+
+/** Fails with why the process did not finish well: it never started, was stopped, or said so. */
+function check(run: SpawnSyncReturns<string>, what: string): void {
+  if (run.status === 0) return
+  const reason =
+    run.error?.message ??
+    (run.signal === null ? run.stderr : `stopped by ${run.signal}`)
+  throw new Error(`${what} failed: ${reason}`)
 }
 
 function linkOf(child: ChildProcess): Promise<string> {

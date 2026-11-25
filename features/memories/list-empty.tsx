@@ -18,11 +18,12 @@ import {
 } from "@/components/ui/empty"
 import type { Go } from "@/hooks/use-place"
 import { toView, type Place } from "@/lib/place"
+import { VIEW_NAMES } from "@/lib/view-names"
 import { VIEWS, type View } from "@/server/bridge/protocol.ts"
 
 import { focusSearch } from "./search-box"
+import type { Opening } from "../new-memory/new-memory-dialog"
 import type { Counts } from "./use-rows"
-import { VIEW_NAMES } from "@/lib/view-names"
 
 type Said = { icon: LucideIcon; title: string; text: string }
 
@@ -49,20 +50,35 @@ type Props = {
   go: Go
   searching: boolean
   counts: Counts | undefined
+  onNew: (opening: Opening) => void
 }
 
 /** What a tab with no rows says, and the way out of it. */
-export function ListEmpty({ place, go, searching, counts }: Props) {
+export function ListEmpty({ place, go, searching, counts, onNew }: Props) {
   if (place.namespace === null) {
     return (
       <Shown
         icon={DatabaseIcon}
         title="No namespaces yet"
         text="A namespace is created with its first memory."
-      />
+      >
+        <Button size="sm" onClick={() => onNew("namespace")}>
+          New namespace
+        </Button>
+      </Shown>
     )
   }
-  if (!searching) return <Shown {...QUIET[place.view]} />
+  if (!searching) {
+    return (
+      <Shown {...QUIET[place.view]}>
+        {place.view === "active" && (
+          <Button variant="outline" size="sm" onClick={() => onNew("memory")}>
+            New memory
+          </Button>
+        )}
+      </Shown>
+    )
+  }
 
   const other = VIEWS.find((view) => view !== place.view && counts?.[view])
   // Both buttons go away with this empty state, so the keyboard moves on to the search.

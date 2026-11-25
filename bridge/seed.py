@@ -72,7 +72,13 @@ SAMPLES: dict[str, list[tuple[str, dict[str, Any]]]] = {
         ("Has a dog named Miso", {"tags": ["personal"], "importance": 0.3, "source": "chat"}),
         (
             "Planning a trip to Lisbon in October",
-            {"tags": ["travel"], "importance": 0.4, "source": "chat", "archived": True},
+            {
+                "key": "next-trip",
+                "tags": ["travel"],
+                "importance": 0.4,
+                "source": "chat",
+                "archived": True,
+            },
         ),
     ],
     "user:bob": [

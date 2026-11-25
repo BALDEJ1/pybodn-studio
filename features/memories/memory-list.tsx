@@ -1,6 +1,9 @@
 "use client"
 
+import { PlusIcon } from "lucide-react"
+
 import { Failure } from "@/components/failure"
+import { Button } from "@/components/ui/button"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -8,13 +11,14 @@ import { useNow } from "@/hooks/use-now"
 import type { Go } from "@/hooks/use-place"
 import { toView, type Place } from "@/lib/place"
 import { cn } from "@/lib/utils"
+import { VIEW_NAMES } from "@/lib/view-names"
 import { VIEWS } from "@/server/bridge/protocol.ts"
 
 import { ListEmpty } from "./list-empty"
 import { MemoryRow } from "./memory-row"
 import { SearchBox } from "./search-box"
+import type { Opening } from "../new-memory/new-memory-dialog"
 import type { Counts, Rows } from "./use-rows"
-import { VIEW_NAMES } from "@/lib/view-names"
 
 const SKELETON_ROWS = 6
 
@@ -29,12 +33,14 @@ type Props = {
   shown: string | null
   failure: Error | null
   onRetry: () => void
+  onNew: (opening: Opening) => void
   className?: string
 }
 
 /** The namespace open: its tabs, the search and the rows. */
 export function MemoryList(props: Props) {
-  const { place, go, counts, loading, failure, onRetry, className } = props
+  const { place, go, counts, loading, failure, onRetry, onNew, className } =
+    props
   const title = place.namespace ?? "No namespace"
   const pickView = (value: unknown) => {
     const view = VIEWS.find((name) => name === value)
@@ -58,6 +64,12 @@ export function MemoryList(props: Props) {
         >
           {title}
         </h1>
+        {place.namespace !== null && (
+          <Button variant="outline" size="sm" onClick={() => onNew("memory")}>
+            <PlusIcon aria-hidden />
+            New memory
+          </Button>
+        )}
       </header>
       <Tabs
         value={place.view}
@@ -98,7 +110,7 @@ export function MemoryList(props: Props) {
   )
 }
 
-function Shown({ place, go, rows, counts, shown }: Props) {
+function Shown({ place, go, rows, counts, shown, onNew }: Props) {
   const now = useNow()
   const list = rows.rows ?? []
   if (list.length === 0) {
@@ -108,6 +120,7 @@ function Shown({ place, go, rows, counts, shown }: Props) {
         go={go}
         searching={rows.searching}
         counts={counts}
+        onNew={onNew}
       />
     )
   }
