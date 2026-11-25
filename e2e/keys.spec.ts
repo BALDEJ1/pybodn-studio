@@ -92,6 +92,7 @@ test("Escape clears the search first, and in a memory goes back to its row", asy
 test("letters typed into a field stay text, and Ctrl+S or ⌘S saves nothing behind a dialog", async ({
   page,
 }) => {
+  const saves = savesSent(page)
   await page.goto(studio.link)
   await openNamespace(page, "user:bob")
   await memoryText(page).fill("Runs on weekends ")
@@ -108,9 +109,38 @@ test("letters typed into a field stay text, and Ctrl+S or ⌘S saves nothing beh
   await page.keyboard.press("ControlOrMeta+s")
   await page.keyboard.press("Escape")
   await expect(dialog).toBeHidden()
+  // A save would have gone out by now.
+  await page.waitForTimeout(1_000)
+  expect(saves).toEqual([])
+
+  // With nothing over the page the same keys do save.
+  await page.keyboard.press("ControlOrMeta+s")
   await expect(
     memoryPane(page).getByRole("button", { name: "Save" })
-  ).toBeVisible()
+  ).toBeHidden()
+  expect(saves).toHaveLength(1)
+})
+
+test("on a phone, E and Ctrl+S or ⌘S leave alone the memory the list covers", async ({
+  page,
+}) => {
+  const saves = savesSent(page)
+  await page.setViewportSize(PHONE)
+  await page.goto(studio.link)
+  await page.getByRole("button", { name: "Open namespaces" }).click()
+  await openNamespace(page, "user:bob")
+  await rows(page).first().click()
+  await memoryText(page).fill("Edited, then left for the list")
+  await page.getByRole("button", { name: "Back to memories" }).click()
+  await expect(rows(page).first()).toBeFocused(SOON)
+
+  // Save first: an archive dialog opened by E would itself stop the save.
+  await page.keyboard.press("ControlOrMeta+s")
+  await page.keyboard.press("e")
+  await page.waitForTimeout(1_000)
+  expect(saves).toEqual([])
+  await expect(page.getByRole("alertdialog")).toHaveCount(0)
+  await expect(rows(page)).toHaveCount(3)
 })
 
 test("N opens a new memory with the keyboard in its text, and Ctrl+Enter or ⌘Enter adds it, a tag still being typed included", async ({
@@ -263,6 +293,20 @@ test("the namespaces sheet does not open again by itself after the window was wi
   await page.waitForTimeout(1_000)
   await expect(page.getByRole("dialog")).toHaveCount(0)
 })
+
+/** The ids of the memories the page sends to be saved, from now on. */
+function savesSent(page: Page): string[] {
+  const sent: string[] = []
+  page.on("request", (request) => {
+    if (!request.url().endsWith("/api/memory")) return
+    const call = request.postDataJSON() as {
+      method: string
+      params: { id?: string }
+    } | null
+    if (call?.method === "update") sent.push(call.params.id ?? "")
+  })
+  return sent
+}
 
 function search(page: Page) {
   return page.getByRole("searchbox", { name: "Search memories" })
