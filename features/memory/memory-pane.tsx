@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
 import { setDraft, useDraft } from "@/hooks/use-drafts"
 import { ApiError } from "@/lib/api"
+import { focusNearest, isShown, LIST_ID, PANE_ID } from "@/lib/focus"
 import { memoryQuery } from "@/lib/queries"
 import { cn } from "@/lib/utils"
 
@@ -23,7 +24,10 @@ type Props = Moves & {
   className?: string
 }
 
-/** The memory picked, to read and edit. */
+/**
+ * The memory picked, to read and edit. Escape goes back to the list, to the memory's row; the
+ * keyboard can be put on the pane itself, as when the memory covers the list on a phone.
+ */
 export function MemoryPane({
   namespace,
   id,
@@ -31,10 +35,28 @@ export function MemoryPane({
   className,
   ...moves
 }: Props) {
+  const toList = (event: React.KeyboardEvent<HTMLElement>) => {
+    // A popover or dialog opened from the memory sits elsewhere on the page and closes first.
+    const inside =
+      event.target instanceof Node && event.currentTarget.contains(event.target)
+    if (event.key !== "Escape" || event.nativeEvent.isComposing || !inside) {
+      return
+    }
+    if (id === null) return
+    event.preventDefault()
+    if (isShown(document.getElementById(LIST_ID))) focusNearest()
+    else onBack()
+  }
   return (
     <section
+      id={PANE_ID}
       aria-label="Memory"
-      className={cn("@container flex min-w-0 flex-1 flex-col", className)}
+      tabIndex={-1}
+      onKeyDown={toList}
+      className={cn(
+        "@container flex min-w-0 flex-1 flex-col outline-none",
+        className
+      )}
     >
       {namespace !== null && id !== null ? (
         // Each memory starts afresh: its own typed tag, copy button and refused field.

@@ -17,8 +17,12 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { useFinalFocus } from "@/hooks/use-final-focus"
 import { useLast } from "@/hooks/use-last"
+import { pressOf } from "@/hooks/use-shortcut"
 import { ApiError } from "@/lib/api"
+import { isCommandEnter } from "@/lib/keys"
+import { rescueFocus } from "@/lib/focus"
 import {
   failureOf,
   isReady,
@@ -73,6 +77,7 @@ export function NewMemoryDialog({ opening, onClose, onAdded, ...rest }: Props) {
   const namespaceRef = useRef<HTMLInputElement>(null)
   const textRef = useRef<HTMLTextAreaElement>(null)
   const add = useAdd(onAdded)
+  const finalFocus = useFinalFocus(opening !== null)
 
   return (
     <Dialog
@@ -81,9 +86,14 @@ export function NewMemoryDialog({ opening, onClose, onAdded, ...rest }: Props) {
         // It stays open until the memory is added or refused, so the answer is never missed.
         if (!open && !add.isPending) onClose()
       }}
+      // On a phone the button that opened it is covered by the memory added, or was in the sheet.
+      onOpenChangeComplete={(open) => {
+        if (!open) rescueFocus()
+      }}
     >
       <DialogContent
         initialFocus={shown === "namespace" ? namespaceRef : textRef}
+        finalFocus={finalFocus}
         className="sm:max-w-md"
       >
         <NewMemoryForm
@@ -168,7 +178,19 @@ function NewMemoryForm({
   const creates = outcome === "create" && memory.namespace.trim() !== ""
 
   return (
-    <form onSubmit={submit} noValidate className="grid gap-4">
+    <form
+      onSubmit={submit}
+      onKeyDown={(event) => {
+        if (!isCommandEnter(pressOf(event.nativeEvent))) return
+        // Enter alone would send it too from a one-line field, so only this sends it.
+        event.preventDefault()
+        // A tag still being typed is added by the same Enter, and goes with it.
+        const form = event.currentTarget
+        requestAnimationFrame(() => form.requestSubmit())
+      }}
+      noValidate
+      className="grid gap-4"
+    >
       <DialogHeader>
         <DialogTitle>
           {opening === "namespace" ? "New namespace" : "New memory"}

@@ -2,13 +2,7 @@ import { SearchIcon, XIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-
-const SEARCH_ID = "memory-search"
-
-/** Puts the keyboard in the search field, as after a button that clears or moves the search. */
-export function focusSearch() {
-  document.getElementById(SEARCH_ID)?.focus()
-}
+import { focusSearch, focusTabStop, SEARCH_ID } from "@/lib/focus"
 
 type Props = {
   query: string
@@ -16,6 +10,7 @@ type Props = {
   onChange: (query: string, typing: boolean) => void
 }
 
+/** Escape clears the search first; the down arrow goes on to the list. */
 export function SearchBox({ query, onChange }: Props) {
   return (
     <div className="relative shrink-0 border-b p-2">
@@ -31,6 +26,16 @@ export function SearchBox({ query, onChange }: Props) {
         autoComplete="off"
         value={query}
         onChange={(event) => onChange(event.target.value, true)}
+        onKeyDown={(event) => {
+          if (event.nativeEvent.isComposing) return
+          if (event.key === "Escape" && query !== "") {
+            event.preventDefault()
+            onChange("", false)
+          } else if (event.key === "ArrowDown") {
+            event.preventDefault()
+            focusTabStop()
+          }
+        }}
         className="px-8 [&::-webkit-search-cancel-button]:hidden"
       />
       {query !== "" && (

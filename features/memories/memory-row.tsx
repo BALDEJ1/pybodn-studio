@@ -6,13 +6,20 @@ import { cn } from "@/lib/utils"
 import { changedLabel, dayLabel } from "@/lib/when"
 import type { Row } from "@/server/bridge/protocol.ts"
 
-type Props = { row: Row; now: Date; selected: boolean; onPick: () => void }
+type Props = {
+  row: Row
+  now: Date
+  selected: boolean
+  /** The row the list's one Tab stop is on. */
+  tabStop: boolean
+  onPick: () => void
+}
 
 /**
  * One memory in the list: the start of its text, its key, tags and expiry, and when it changed.
  * Each value keeps its own text direction, so a right-to-left mark in one cannot turn another.
  */
-export function MemoryRow({ row, now, selected, onPick }: Props) {
+export function MemoryRow({ row, now, selected, tabStop, onPick }: Props) {
   const unsaved = useDraft(row.id) !== undefined
   const facts = [
     row.key && <bdi className="font-mono">{row.key}</bdi>,
@@ -31,6 +38,8 @@ export function MemoryRow({ row, now, selected, onPick }: Props) {
     <li>
       <button
         type="button"
+        data-row={row.id}
+        tabIndex={tabStop ? 0 : -1}
         aria-current={selected ? "true" : undefined}
         onClick={onPick}
         className={cn(

@@ -4,6 +4,7 @@ import { Toast } from "@base-ui/react/toast"
 import { XIcon } from "lucide-react"
 
 import { buttonVariants } from "@/components/ui/button"
+import { rescueFocus } from "@/lib/focus"
 import { cn } from "@/lib/utils"
 
 const SHOWN_FOR = 8_000
@@ -21,6 +22,8 @@ type Action = { label: string; onClick: () => void }
 export function notify(text: string, action?: Action): void {
   const id = manager.add({
     title: text,
+    // Undo may have been the last thing the keyboard was on.
+    onRemove: rescueFocus,
     actionProps: action && {
       children: action.label,
       onClick: () => {

@@ -17,11 +17,11 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 import type { Go } from "@/hooks/use-place"
+import { focusSearch } from "@/lib/focus"
 import { toView, type Place } from "@/lib/place"
 import { VIEW_NAMES } from "@/lib/view-names"
 import { VIEWS, type View } from "@/server/bridge/protocol.ts"
 
-import { focusSearch } from "./search-box"
 import type { Opening } from "../new-memory/new-memory-dialog"
 import type { Counts } from "./use-rows"
 
