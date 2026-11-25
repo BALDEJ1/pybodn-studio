@@ -12,7 +12,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { useFinalFocus } from "@/hooks/use-final-focus"
 import { useLast } from "@/hooks/use-last"
+import { rescueFocus } from "@/lib/focus"
 
 /** An action that asks first. One that cannot be undone is destructive. */
 export type Ask = {
@@ -43,6 +45,7 @@ export function ConfirmDialog<K extends string>({
   const ask = shown === null ? null : asks[shown]
   const actionRef = useRef<HTMLButtonElement>(null)
   const cancelRef = useRef<HTMLButtonElement>(null)
+  const finalFocus = useFinalFocus(asking !== null)
 
   return (
     <AlertDialog
@@ -50,9 +53,14 @@ export function ConfirmDialog<K extends string>({
       onOpenChange={(open) => {
         if (!open) onClose()
       }}
+      // The button that opened it may be gone by then, such as in a sheet that closed.
+      onOpenChangeComplete={(open) => {
+        if (!open) rescueFocus()
+      }}
     >
       <AlertDialogContent
         initialFocus={ask?.destructive ? cancelRef : actionRef}
+        finalFocus={finalFocus}
       >
         <AlertDialogHeader>
           <AlertDialogTitle>{ask?.title}</AlertDialogTitle>

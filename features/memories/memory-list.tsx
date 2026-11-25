@@ -9,6 +9,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useNow } from "@/hooks/use-now"
 import type { Go } from "@/hooks/use-place"
+import { isWide, LIST_ID } from "@/lib/focus"
+import { rowAfter } from "@/lib/keys"
 import { toView, type Place } from "@/lib/place"
 import { cn } from "@/lib/utils"
 import { VIEW_NAMES } from "@/lib/view-names"
@@ -49,6 +51,7 @@ export function MemoryList(props: Props) {
 
   return (
     <section
+      id={LIST_ID}
       aria-label="Memories"
       className={cn(
         "flex min-w-0 flex-1 flex-col lg:max-w-md lg:border-r",
@@ -101,6 +104,8 @@ export function MemoryList(props: Props) {
         <TabsContent
           value={place.view}
           aria-busy={loading}
+          // The rows and buttons in it take the keyboard; the panel itself is no extra stop.
+          tabIndex={-1}
           className="min-h-0 overflow-y-auto"
         >
           {loading ? !failure && <RowSkeletons /> : <Shown {...props} />}
@@ -124,15 +129,32 @@ function Shown({ place, go, rows, counts, shown, onNew }: Props) {
       />
     )
   }
+  // One Tab stop for the whole list, on the memory shown; the arrows, Home and End move along it.
+  const tabStop = list.some((row) => row.id === shown) ? shown : list[0].id
+  const move = (event: React.KeyboardEvent<HTMLUListElement>) => {
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+    const buttons = [
+      ...event.currentTarget.querySelectorAll<HTMLElement>("[data-row]"),
+    ]
+    const at = buttons.findIndex((button) => button === document.activeElement)
+    const next = rowAfter(event.key, at, buttons.length)
+    if (next === null) return
+    event.preventDefault()
+    buttons[next].focus()
+    // Beside the list the memory follows the keyboard; on a phone it would cover the list.
+    const id = buttons[next].dataset.row
+    if (isWide() && id !== undefined) go({ ...place, id }, { replace: true })
+  }
   return (
     <>
-      <ul aria-label="Memory list">
+      <ul aria-label="Memory list" onKeyDown={move}>
         {list.map((row) => (
           <MemoryRow
             key={row.id}
             row={row}
             now={now}
             selected={row.id === shown}
+            tabStop={row.id === tabStop}
             onPick={() => go({ ...place, id: row.id })}
           />
         ))}

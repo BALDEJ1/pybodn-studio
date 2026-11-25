@@ -6,6 +6,8 @@ import { useState } from "react"
 
 import { ConfirmDialog, type Ask } from "@/components/confirm-dialog"
 import { Button } from "@/components/ui/button"
+import { useShortcut } from "@/hooks/use-shortcut"
+import { isShown, PANE_ID } from "@/lib/focus"
 import { overviewQuery } from "@/lib/queries"
 import type { MemoryRecord } from "@/server/bridge/protocol.ts"
 
@@ -20,11 +22,18 @@ const EXCERPT = 60
 
 /**
  * Archive and Delete in the bar over a memory, each asking first. Below 600 px of editor the
- * buttons show their icons only.
+ * buttons show their icons only. E archives an active memory, asking too, and restores an
+ * archived one.
  */
 export function MemoryActions({ record, actions }: Props) {
   const [asking, setAsking] = useState<"archive" | "delete" | null>(null)
   const { namespace } = record
+  useShortcut("archive", () => {
+    // On a phone the list may cover the memory, which then is not the one meant.
+    if (actions.isPending || !isShown(document.getElementById(PANE_ID))) return
+    if (record.status === "active") setAsking("archive")
+    else if (record.status === "archived") actions.restore()
+  })
   // Deleting the last memory of a namespace takes the namespace too, and the dialog says so.
   const { data: last = false } = useQuery({
     ...overviewQuery,

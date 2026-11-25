@@ -1,13 +1,15 @@
 "use client"
 
 import { Loader2Icon } from "lucide-react"
-import { useEffect, useEffectEvent, useState } from "react"
+import { useState } from "react"
 
 import { Failure } from "@/components/failure"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { readDraft, setDraft, useDraft } from "@/hooks/use-drafts"
 import { useNow } from "@/hooks/use-now"
+import { useShortcut } from "@/hooks/use-shortcut"
+import { isShown, PANE_ID } from "@/lib/focus"
 import {
   changedElsewhere,
   edit,
@@ -88,10 +90,9 @@ export function MemoryEditor({
     trySave()
   }
 
-  const onSaveKey = useEffectEvent((event: KeyboardEvent) => {
-    const modifier = event.metaKey || event.ctrlKey
-    if (!modifier || event.altKey || event.key.toLowerCase() !== "s") return
-    event.preventDefault()
+  useShortcut("save", () => {
+    // On a phone the list may cover the memory, which then waits until it is open again.
+    if (!isShown(document.getElementById(PANE_ID))) return
     // A field that finishes its edit on the way out, such as a tag still being typed, does so first.
     const active = document.activeElement
     if (active instanceof HTMLElement) {
@@ -100,10 +101,6 @@ export function MemoryEditor({
     }
     trySave()
   })
-  useEffect(() => {
-    window.addEventListener("keydown", onSaveKey)
-    return () => window.removeEventListener("keydown", onSaveKey)
-  }, [])
 
   return (
     <>

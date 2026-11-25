@@ -8,6 +8,7 @@ import {
 } from "@tanstack/react-query"
 
 import { notify } from "@/components/toaster"
+import { rescueFocus } from "@/lib/focus"
 import { setDraft } from "@/hooks/use-drafts"
 import { callMemory } from "@/lib/api"
 import { refresh, staleAfterChange } from "@/lib/queries"
@@ -29,6 +30,8 @@ export function useUpkeep(onPurged: (gone: ReadonlySet<string>) => void) {
       for (const id of gone) setDraft(id, undefined)
       await refresh(client, staleAfterChange(null))
       onPurged(gone)
+      // With none left, Delete turns off and lets go of the keyboard.
+      rescueFocus()
       notify(
         purged === 1
           ? "1 expired memory deleted."

@@ -18,6 +18,8 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
+import { useFinalFocus } from "@/hooks/use-final-focus"
+import { rescueFocus } from "@/lib/focus"
 
 import { useUpkeep } from "./use-upkeep"
 
@@ -80,6 +82,7 @@ export function UpkeepDialogs({
   onPurged,
 }: DialogsProps) {
   const { purge, erase } = useUpkeep(onPurged)
+  const finalFocus = useFinalFocus(erase.isPending)
   const asks: Record<Upkeep, Ask> = {
     purge: {
       title: "Delete expired memories?",
@@ -101,8 +104,14 @@ export function UpkeepDialogs({
     <>
       <ConfirmDialog asking={asking} asks={asks} onClose={onClose} />
       {/* Nothing closes it: the file is busy until the rewrite ends. */}
-      <AlertDialog open={erase.isPending}>
-        <AlertDialogContent>
+      <AlertDialog
+        open={erase.isPending}
+        // What asked for it, the dialog before, is gone by then.
+        onOpenChangeComplete={(open) => {
+          if (!open) rescueFocus()
+        }}
+      >
+        <AlertDialogContent finalFocus={finalFocus}>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <Loader2Icon className="size-4 animate-spin" aria-hidden />
