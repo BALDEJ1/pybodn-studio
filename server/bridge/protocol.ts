@@ -172,6 +172,15 @@ export type MethodSpec = {
 }
 
 const target = { namespace: z.string(), id: z.string() }
+
+// Metadata passes on as the page sent it. A record schema would copy it key by key, and a key
+// such as `__proto__` would then be lost; the library checks every value itself.
+const jsonObject = z.custom<Record<string, unknown>>(
+  (value) =>
+    value !== null && typeof value === "object" && !Array.isArray(value),
+  "metadata must be a JSON object"
+)
+
 const changes = z
   .object({
     content: z.string(),
@@ -179,7 +188,7 @@ const changes = z
     importance: z.number(),
     source: z.string().nullable(),
     expires_at: z.string().nullable(),
-    metadata: z.record(z.string(), z.unknown()),
+    metadata: jsonObject,
   })
   .partial()
   .strict()

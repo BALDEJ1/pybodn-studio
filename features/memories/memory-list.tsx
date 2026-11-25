@@ -14,7 +14,7 @@ import { ListEmpty } from "./list-empty"
 import { MemoryRow } from "./memory-row"
 import { SearchBox } from "./search-box"
 import type { Counts, Rows } from "./use-rows"
-import { VIEW_NAMES } from "./view-names"
+import { VIEW_NAMES } from "@/lib/view-names"
 
 const SKELETON_ROWS = 6
 

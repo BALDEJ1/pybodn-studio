@@ -4,6 +4,7 @@ import path from "node:path"
 
 import { expect, test, type Page } from "@playwright/test"
 
+import { heading, memoryText, openNamespace, rows, tab } from "./pages"
 import { seed, startStudio, type Studio } from "./studio"
 
 const PHONE = { width: 375, height: 812 }
@@ -108,7 +109,7 @@ test("on a phone, Back from a memory opened by a link goes to its list instead o
   const phone = await context.newPage()
   await phone.setViewportSize(PHONE)
   await phone.goto(link.url)
-  await expect(memoryText(phone)).toHaveText(link.text)
+  await expect(memoryText(phone)).toHaveValue(link.text)
 
   await phone.getByRole("button", { name: "Back to memories" }).click()
   await expect(rows(phone).first()).toBeVisible()
@@ -155,7 +156,7 @@ test("on a phone, a memory opened by a link shows why the namespaces could not b
   await expect(memory.getByText(BUSY)).toBeVisible()
   failing.delete("get")
   await retry.click()
-  await expect(memoryText(phone)).toHaveText(link.text)
+  await expect(memoryText(phone)).toHaveValue(link.text)
 })
 
 test("a memory written past the page shows up by itself, and hostile text stays text", async ({
@@ -178,7 +179,7 @@ test("a memory written past the page shows up by itself, and hostile text stays 
   await expect(rows(page).first()).toContainText("<img src=x onerror=alert(1)>")
   await rows(page).first().click()
   const memory = page.getByRole("region", { name: "Memory", exact: true })
-  await expect(memory).toContainText("javascript:alert(2)")
+  await expect(memoryText(page)).toHaveValue(/javascript:alert\(2\)/)
 
   for (const pane of [memory, page.getByRole("region", { name: "Memories" })]) {
     await expect(pane.locator("img, a, script")).toHaveCount(0)
@@ -198,27 +199,7 @@ async function memoryLink(page: Page, namespace: string) {
   await openNamespace(page, namespace)
   await rows(page).first().click()
   await expect(page).toHaveURL(/[?&]id=/)
-  return { url: page.url(), text: (await memoryText(page).textContent()) ?? "" }
-}
-
-function memoryText(page: Page) {
-  return page.getByRole("region", { name: "Memory", exact: true }).locator("p")
-}
-
-function openNamespace(page: Page, name: string) {
-  return page.getByRole("button", { name: `${name}, ` }).click()
-}
-
-function heading(page: Page) {
-  return page.getByRole("heading", { level: 1 })
-}
-
-function tab(page: Page, name: string) {
-  return page.getByRole("tab", { name: new RegExp(`^${name}`) })
-}
-
-function rows(page: Page) {
-  return page.getByRole("list", { name: "Memory list" }).getByRole("button")
+  return { url: page.url(), text: await memoryText(page).inputValue() }
 }
 
 /** Adds a memory past the page, as another program would, so only a refresh can show it. */
