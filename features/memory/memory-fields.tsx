@@ -1,5 +1,6 @@
 "use client"
 
+import { FieldError, fieldAria } from "@/components/field-error"
 import { Input } from "@/components/ui/input"
 import { Slider } from "@/components/ui/slider"
 import { Textarea } from "@/components/ui/textarea"
@@ -30,17 +31,10 @@ export function MemoryFields({
   onChange,
 }: Props) {
   // A refused field says so, and its reason is read out with it.
-  const describe = (field: Field, hint?: string) => {
-    const refused = errorOf(field) !== undefined
-    return {
-      "aria-invalid": refused,
-      "aria-describedby":
-        [refused && errorId(field), hint].filter(Boolean).join(" ") ||
-        undefined,
-    }
-  }
+  const describe = (field: Field, hint?: string) =>
+    fieldAria(errorOf(field) === undefined ? null : errorId(field), hint)
   const error = (field: Field) => (
-    <FieldError field={field} message={errorOf(field)} />
+    <FieldError id={errorId(field)} message={errorOf(field)} />
   )
 
   return (
@@ -153,15 +147,6 @@ export function MemoryFields({
         </div>
       </div>
     </>
-  )
-}
-
-function FieldError({ field, message }: { field: Field; message?: string }) {
-  if (message === undefined) return null
-  return (
-    <p id={errorId(field)} className="mt-1 text-xs text-destructive">
-      {message}
-    </p>
   )
 }
 

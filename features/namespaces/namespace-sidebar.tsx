@@ -1,5 +1,7 @@
 "use client"
 
+import { PlusIcon } from "lucide-react"
+
 import {
   Sidebar,
   SidebarContent,
@@ -27,6 +29,7 @@ type Props = {
   loading: boolean
   current: string | null
   onPick: (namespace: string) => void
+  onNewNamespace: () => void
 }
 
 /** The file, its namespaces with their active memories counted, and the theme. */
@@ -36,6 +39,7 @@ export function NamespaceSidebar({
   loading,
   current,
   onPick,
+  onNewNamespace,
 }: Props) {
   const { setOpenMobile } = useSidebar()
   return (
@@ -82,6 +86,24 @@ export function NamespaceSidebar({
                   ))}
             </SidebarMenu>
           </nav>
+          {/* An action rather than a place, so it stands apart from the namespaces to go to. */}
+          {!loading && namespaces && (
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  className="text-muted-foreground"
+                  onClick={() => {
+                    // The sheet on a phone makes way for the dialog.
+                    setOpenMobile(false)
+                    onNewNamespace()
+                  }}
+                >
+                  <PlusIcon aria-hidden />
+                  <span>New namespace</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          )}
         </SidebarGroup>
       </SidebarContent>
     </Sidebar>
