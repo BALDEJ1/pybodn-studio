@@ -5,7 +5,7 @@ import { useState } from "react"
 
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { useLeaveWarning } from "@/hooks/use-drafts"
-import { usePlace } from "@/hooks/use-place"
+import { isStillAt, usePlace } from "@/hooks/use-place"
 import { placeAfterLeaving, settle, shownId, toNamespace } from "@/lib/place"
 import { overviewQuery } from "@/lib/queries"
 import { cn } from "@/lib/utils"
@@ -46,7 +46,9 @@ export function MemoryScreen({ path }: { path: string }) {
     : spaces?.find((space) => space.name === place.namespace)
 
   // An archived or deleted memory gives way to its neighbour; on a phone, leaving it is its Back.
+  // Someone who moved on while the write ran stays where they went.
   const leave = (id: string) => {
+    if (!isStillAt(asked)) return
     const wide = window.matchMedia(WIDE).matches
     const next = placeAfterLeaving(place, rows.rows ?? [], id, wide)
     if (wide) go(next, { replace: true })
@@ -108,7 +110,7 @@ export function MemoryScreen({ path }: { path: string }) {
         expired={overview.data?.expired ?? 0}
         onClose={() => setUpkeep(null)}
         onPurged={(gone) => {
-          if (shown !== null && gone.has(shown)) {
+          if (shown !== null && gone.has(shown) && isStillAt(asked)) {
             go({ ...place, id: null }, { replace: true })
           }
         }}

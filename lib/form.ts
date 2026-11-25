@@ -85,6 +85,19 @@ export function rebase(
 }
 
 /**
+ * The draft once the page's own archive or restore made `changed`, one version on. Edits begun on
+ * the version before move onto it. Edits someone else's save had already passed stay behind it,
+ * so the person still picks whose edits stay.
+ */
+export function afterOwnChange(
+  draft: Draft | undefined,
+  changed: MemoryRecord
+): Draft | undefined {
+  if (!draft || draft.version < changed.version - 1) return draft
+  return rebase(draft, changed)
+}
+
+/**
  * The draft once `sent` is saved as `saved`. What was typed while the save was on its way stays, on
  * the saved version; the rest is done, even where the memory now lays it out another way.
  */

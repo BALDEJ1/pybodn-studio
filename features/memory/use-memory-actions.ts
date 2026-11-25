@@ -6,7 +6,7 @@ import { announce } from "@/components/announcer"
 import { notify } from "@/components/toaster"
 import { readDraft, setDraft } from "@/hooks/use-drafts"
 import { callMemory } from "@/lib/api"
-import { rebase } from "@/lib/form"
+import { afterOwnChange } from "@/lib/form"
 import { refresh, staleAfterChange } from "@/lib/queries"
 import type { MemoryRecord } from "@/server/bridge/protocol.ts"
 
@@ -31,7 +31,7 @@ export function useMemoryActions(
   const { namespace, id } = record
   const failed = (error: Error) => notify(error.message)
   const keep = (changed: MemoryRecord) =>
-    keepOwnChange(client, changed, rebase(readDraft(id), changed))
+    keepOwnChange(client, changed, afterOwnChange(readDraft(id), changed))
 
   // Undo comes from a toast, so it may run after the person has moved on to another memory.
   const restore = useMutation<MemoryRecord, Error, { undoing: boolean }>({
