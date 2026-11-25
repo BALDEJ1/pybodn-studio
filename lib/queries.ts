@@ -52,6 +52,9 @@ export const memoryQuery = (namespace: string, id: string) =>
     queryKey: memoryKey(namespace, id),
     queryFn: () => callMemory("get", { namespace, id }),
     ...FRESH,
+    // Kept while the tab is open, as its unsaved edits are: deleting the expired memories finds
+    // the edits to drop by the memories read.
+    gcTime: Infinity,
   })
 
 /** The memory that holds `key` in `namespace`, archived and expired ones included, or null. */
