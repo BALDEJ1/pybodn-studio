@@ -239,6 +239,40 @@ test("deleting the expired memories of the file leaves the one open, which was a
   ).toBeDisabled()
 })
 
+test("deleting the expired memories, when it ends after the person opened another memory, leaves them on that one", async ({
+  page,
+}) => {
+  let release = () => {}
+  const held = new Promise<void>((resolve) => (release = resolve))
+  let purged = false
+  // The file has no expired memories left, but the page has not yet read that back.
+  await page.route("**/api/memory", async (route) => {
+    const { method } = route.request().postDataJSON() as { method: string }
+    if (purged && method === "overview") await held
+    const response = await route.fetch()
+    if (method === "purge_expired") purged = true
+    await route.fulfill({ response })
+  })
+  await page.goto(studio.link)
+  await openNamespace(page, "agent:planner")
+  await tab(page, "Expired").click()
+  await rows(page).filter({ hasText: "Pickup for the team offsite" }).click()
+  await page.getByRole("button", { name: "Delete expired memories" }).click()
+  await asking(page, "Delete expired memories?")
+    .getByRole("button", { name: "Delete" })
+    .click()
+
+  await expect.poll(() => purged).toBe(true)
+  await tab(page, "Active").click()
+  await rows(page).filter({ hasText: "Deploys go out on Tuesdays" }).click()
+  const id = new URL(page.url()).searchParams.get("id")
+  release()
+
+  await expect(page.getByText("1 expired memory deleted.")).toBeVisible()
+  expect(new URL(page.url()).searchParams.get("id")).toBe(id)
+  await expect(memoryText(page)).toHaveValue("Deploys go out on Tuesdays")
+})
+
 test("while erasing runs the page covers everything and reads nothing, and afterwards it follows changes made elsewhere again", async ({
   page,
 }) => {
