@@ -4,6 +4,7 @@ import { isCommandEnter, rowAfter, shortcutOf, type Press } from "./keys"
 
 const plain: Press = {
   key: "",
+  code: "",
   meta: false,
   ctrl: false,
   alt: false,
@@ -55,6 +56,22 @@ describe("a shortcut", () => {
     expect(shortcutOf(press("e", { meta: true }))).toBeNull()
     expect(shortcutOf(press("n", { alt: true }))).toBeNull()
     expect(shortcutOf(press("s", { ctrl: true, alt: true }))).toBeNull()
+  })
+
+  test("on a layout of other letters, such as Ukrainian, the key where N, E or S stands works", () => {
+    expect(shortcutOf(press("т", { code: "KeyN" }))).toBe("new")
+    expect(shortcutOf(press("У", { code: "KeyE" }))).toBe("archive")
+    expect(shortcutOf(press("і", { code: "KeyS", meta: true }))).toBe("save")
+    expect(shortcutOf(press("т", { code: "KeyN", typing: true }))).toBeNull()
+  })
+
+  test("on a Latin layout the letter counts, wherever its key stands", () => {
+    // AZERTY: the letter A stands where QWERTY has Q, and N stays N.
+    expect(shortcutOf(press("a", { code: "KeyQ" }))).toBeNull()
+    expect(shortcutOf(press("n", { code: "KeyN" }))).toBe("new")
+    // Dvorak: the letter E stands where QWERTY has D.
+    expect(shortcutOf(press("e", { code: "KeyD" }))).toBe("archive")
+    expect(shortcutOf(press("b", { code: "KeyN" }))).toBeNull()
   })
 
   test("any other key is no shortcut", () => {

@@ -23,6 +23,7 @@ export function pressOf(event: KeyboardEvent): Press {
   const target = event.target instanceof Element ? event.target : null
   return {
     key: event.key,
+    code: event.code,
     meta: event.metaKey,
     ctrl: event.ctrlKey,
     alt: event.altKey,

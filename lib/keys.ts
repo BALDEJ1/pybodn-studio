@@ -1,6 +1,8 @@
 /** A key press, as far as Studio's keys care. */
 export type Press = {
   key: string
+  /** Where the key stands, named after the US layout, such as "KeyN". */
+  code: string
   meta: boolean
   ctrl: boolean
   alt: boolean
@@ -20,17 +22,30 @@ const LETTERS: Readonly<Record<string, Shortcut>> = {
   e: "archive",
 }
 
+// A letter outside the Latin alphabet, as Ukrainian or Greek layouts give.
+const OTHER_LETTER = /^(?![a-z])\p{L}$/iu
+const LETTER_KEY = /^Key([A-Z])$/
+
 /**
  * The shortcut a press stands for, if any. Save works from a field too; a plain letter there is
  * only text. Nothing works while something is open over the page.
  */
 export function shortcutOf(press: Press): Shortcut | null {
   if (press.composing || press.overlaid) return null
-  if (press.meta || press.ctrl) {
-    return !press.alt && press.key.toLowerCase() === "s" ? "save" : null
-  }
+  const key = latinKey(press)
+  if (press.meta || press.ctrl) return !press.alt && key === "s" ? "save" : null
   if (press.typing || press.alt) return null
-  return LETTERS[press.key.toLowerCase()] ?? null
+  return LETTERS[key] ?? null
+}
+
+/**
+ * The key in lower case. On a layout of other letters the shortcuts go by where the key stands,
+ * so N is the key that gives N on a US layout; on a Latin one they go by the letter itself.
+ */
+function latinKey({ key, code }: Press): string {
+  const standing = LETTER_KEY.exec(code)
+  if (OTHER_LETTER.test(key) && standing) return standing[1].toLowerCase()
+  return key.toLowerCase()
 }
 
 /**
