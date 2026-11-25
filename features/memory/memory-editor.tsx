@@ -24,11 +24,13 @@ import type { MemoryRecord } from "@/server/bridge/protocol.ts"
 import { CopyId } from "./copy-id"
 import { EditorBar } from "./editor-bar"
 import { FIELD_IDS } from "./field-ids"
+import { MemoryActions } from "./memory-actions"
 import { ConflictBand, StatusBand } from "./memory-bands"
 import { MemoryFields } from "./memory-fields"
+import { useMemoryActions, type Moves } from "./use-memory-actions"
 import { useSave, type Rejection } from "./use-save"
 
-type Props = {
+type Props = Moves & {
   record: MemoryRecord
   /** A refresh of the memory that failed, shown over the last version read. */
   failure: Error | null
@@ -40,7 +42,13 @@ type Props = {
  * One memory to edit. Edits stay in a draft until saved, and the draft remembers the version they
  * began on: when someone else saves the memory first, the person picks whose edits stay.
  */
-export function MemoryEditor({ record, failure, onRetry, onBack }: Props) {
+export function MemoryEditor({
+  record,
+  failure,
+  onRetry,
+  onBack,
+  ...moves
+}: Props) {
   const now = useNow()
   const { id } = record
   const draft = useDraft(id)
@@ -54,6 +62,7 @@ export function MemoryEditor({ record, failure, onRetry, onBack }: Props) {
     // Save goes away once saved; the keyboard then stays in the memory.
     onSaved: () => requestAnimationFrame(keepFocusInEditor),
   })
+  const actions = useMemoryActions(record, moves)
   const problems = problemsOf(draft?.edits ?? {})
 
   // The draft is read afresh: one event may make several edits, such as a tag added on the way out.
@@ -121,8 +130,10 @@ export function MemoryEditor({ record, failure, onRetry, onBack }: Props) {
               )}
               Save
             </Button>
+            <Separator orientation="vertical" className="mx-1 h-5" />
           </>
         )}
+        <MemoryActions record={record} actions={actions} />
       </EditorBar>
       {changedElsewhere(draft, record) && (
         <ConflictBand onLoadLatest={discard} onKeepMine={keepMine} />
@@ -131,6 +142,7 @@ export function MemoryEditor({ record, failure, onRetry, onBack }: Props) {
         record={record}
         hasExpiry={form.expires !== ""}
         onRemoveExpiry={() => change({ expires: "" })}
+        onRestore={actions.restore}
       />
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="max-w-3xl px-5 pt-5 pb-10 max-sm:px-4">

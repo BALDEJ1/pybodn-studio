@@ -52,6 +52,9 @@ export const memoryQuery = (namespace: string, id: string) =>
     queryKey: memoryKey(namespace, id),
     queryFn: () => callMemory("get", { namespace, id }),
     ...FRESH,
+    // Kept while the tab is open, as its unsaved edits are: deleting the expired memories finds
+    // the edits to drop by the memories read.
+    gcTime: Infinity,
   })
 
 /** The memory that holds `key` in `namespace`, archived and expired ones included, or null. */
@@ -65,10 +68,12 @@ export const keyOwnerQuery = (namespace: string, key: string) =>
 
 /**
  * The reads a change in `namespace` can leave out of date: the counts of every namespace, and the
- * tabs and searches of this one. The memory changed comes back with the change itself.
+ * tabs and searches of this one, or of every namespace for a change across the file (null). The
+ * memory changed comes back with the change itself.
  */
-export function staleAfterChange(namespace: string): QueryKey[] {
-  return [overviewQuery.queryKey, ["list", namespace], ["search", namespace]]
+export function staleAfterChange(namespace: string | null): QueryKey[] {
+  const within = namespace === null ? [] : [namespace]
+  return [overviewQuery.queryKey, ["list", ...within], ["search", ...within]]
 }
 
 /** Reads `keys` again; it settles once those on screen are back. */

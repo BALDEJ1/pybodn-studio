@@ -64,3 +64,12 @@ export function usePlace() {
 }
 
 export type Go = ReturnType<typeof usePlace>["go"]
+
+/**
+ * Whether the address still holds `place`. A step that ends late, such as a delete, moves the
+ * person only if they have not moved on since.
+ */
+export function isStillAt(place: Place): boolean {
+  const now = placeOf(new URLSearchParams(window.location.search))
+  return addressOf(now) === addressOf(place)
+}

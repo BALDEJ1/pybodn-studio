@@ -4,6 +4,7 @@ import type { MemoryRecord } from "@/server/bridge/protocol.ts"
 
 import { momentOf } from "./expiry"
 import {
+  afterOwnChange,
   afterSave,
   changedElsewhere,
   changesOf,
@@ -149,6 +150,32 @@ describe("after a save", () => {
     expect(
       afterSave(undefined, sent, after({ content: "Short answers" }))
     ).toBeUndefined()
+  })
+})
+
+describe("after the page's own archive or restore", () => {
+  test("edits begun on the version before move onto the change, which is not someone else's", () => {
+    const draft = drafted(record, { content: "Short answers" })
+    const archived = after({ status: "archived" })
+
+    const moved = afterOwnChange(draft, archived)
+
+    expect(moved).toEqual({ version: 4, edits: { content: "Short answers" } })
+    expect(changedElsewhere(moved, archived)).toBe(false)
+  })
+
+  test("edits someone else's save had already passed stay behind, so the person still picks", () => {
+    const draft = drafted(record, { content: "Short answers" })
+    const archived = { ...after({ status: "archived" }), version: 5 }
+
+    const kept = afterOwnChange(draft, archived)
+
+    expect(kept).toBe(draft)
+    expect(changedElsewhere(kept, archived)).toBe(true)
+  })
+
+  test("no edits stay none", () => {
+    expect(afterOwnChange(undefined, after({}))).toBeUndefined()
   })
 })
 

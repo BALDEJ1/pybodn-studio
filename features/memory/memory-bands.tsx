@@ -36,10 +36,16 @@ type StatusProps = {
   /** Whether the draft still keeps the expiry, so it can be removed. */
   hasExpiry: boolean
   onRemoveExpiry: () => void
+  onRestore: () => void
 }
 
-/** Why an archived or expired memory is out of reads, as it is saved. */
-export function StatusBand({ record, hasExpiry, onRemoveExpiry }: StatusProps) {
+/** Why an archived or expired memory is out of reads, as it is saved, and the way back. */
+export function StatusBand({
+  record,
+  hasExpiry,
+  onRemoveExpiry,
+  onRestore,
+}: StatusProps) {
   const now = useNow()
   if (record.status === "archived") {
     return (
@@ -47,7 +53,11 @@ export function StatusBand({ record, hasExpiry, onRemoveExpiry }: StatusProps) {
         icon={<ArchiveIcon aria-hidden />}
         title="Archived"
         text="Hidden from search and reads."
-      />
+      >
+        <Button variant="outline" size="xs" onClick={onRestore}>
+          Restore
+        </Button>
+      </Band>
     )
   }
   if (record.status !== "expired" || record.expires_at === null) return null

@@ -44,14 +44,34 @@ export function toView(place: Place, view: View): Place {
 }
 
 /**
- * The place as the file allows it: a namespace that is gone, or none named, gives way to the
- * first one, and a memory picked in it goes too.
+ * The place as the file allows it. With no namespace named, the first one opens on the tab asked
+ * for. A namespace that is gone, such as after its last memory was deleted, gives way to the first
+ * one, opened from its start.
  */
 export function settle(place: Place, namespaces: readonly string[]): Place {
   if (place.namespace !== null && namespaces.includes(place.namespace)) {
     return place
   }
-  return { ...place, namespace: namespaces[0] ?? null, id: null }
+  const first = namespaces[0] ?? null
+  if (place.namespace === null) return { ...place, namespace: first, id: null }
+  return { namespace: first, view: "active", query: "", id: null }
+}
+
+/**
+ * Where to go once memory `id` leaves the tab, as when it is archived or deleted. A wide screen
+ * shows the memory after it, or the one before at the end; a narrow one goes back to the list.
+ */
+export function placeAfterLeaving(
+  place: Place,
+  rows: readonly { id: string }[],
+  id: string,
+  wide: boolean
+): Place {
+  if (!wide) return { ...place, id: null }
+  const at = rows.findIndex((row) => row.id === id)
+  const rest = rows.filter((row) => row.id !== id)
+  const next = at === -1 ? rest[0] : (rest[at] ?? rest[at - 1])
+  return { ...place, id: next?.id ?? null }
 }
 
 /**
