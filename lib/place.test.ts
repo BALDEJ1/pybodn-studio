@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest"
 
 import {
   addressOf,
+  placeAfterLeaving,
   placeOf,
   settle,
   shownId,
@@ -71,12 +72,10 @@ describe("settling the place on the namespaces in the file", () => {
     expect(settle(alice, ["user:alice", "user:bob"])).toBe(alice)
   })
 
-  test("a namespace that is gone gives way to the first, and its memory goes too", () => {
-    expect(settle(alice, ["agent:planner", "user:bob"])).toEqual({
-      ...alice,
-      namespace: "agent:planner",
-      id: null,
-    })
+  test("a namespace that is gone gives way to the first, opened from its start", () => {
+    expect(settle(alice, ["agent:planner", "user:bob"])).toEqual(
+      toNamespace("agent:planner")
+    )
   })
 
   test("with no namespace named, the first one opens", () => {
@@ -86,7 +85,36 @@ describe("settling the place on the namespaces in the file", () => {
   })
 
   test("an empty file has no namespace to open", () => {
-    expect(settle(alice, [])).toEqual({ ...alice, namespace: null, id: null })
+    expect(settle(alice, [])).toEqual({
+      namespace: null,
+      view: "active",
+      query: "",
+      id: null,
+    })
+  })
+})
+
+describe("the place once the memory shown leaves its tab", () => {
+  const rows = [{ id: "a" }, { id: "b" }, { id: "c" }]
+
+  test("on a wide screen, the next memory takes its place, or the one before at the end", () => {
+    expect(placeAfterLeaving(alice, rows, "b", true).id).toBe("c")
+    expect(placeAfterLeaving(alice, rows, "c", true).id).toBe("b")
+  })
+
+  test("a memory the rows did not list gives way to the first row", () => {
+    expect(placeAfterLeaving(alice, rows, "z", true).id).toBe("a")
+  })
+
+  test("the last memory of a tab leaves none picked", () => {
+    expect(placeAfterLeaving(alice, [{ id: "a" }], "a", true).id).toBeNull()
+  })
+
+  test("on a narrow screen, the list comes back instead, in the same tab and search", () => {
+    expect(placeAfterLeaving(alice, rows, "b", false)).toEqual({
+      ...alice,
+      id: null,
+    })
   })
 })
 

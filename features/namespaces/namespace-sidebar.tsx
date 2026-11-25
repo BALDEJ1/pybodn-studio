@@ -5,6 +5,7 @@ import { PlusIcon } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupLabel,
   SidebarHeader,
@@ -17,6 +18,7 @@ import {
 } from "@/components/ui/sidebar"
 import type { Overview } from "@/server/bridge/protocol.ts"
 
+import { UpkeepMenu, type Upkeep } from "../upkeep/file-upkeep"
 import { ThemeSwitch } from "./theme-switch"
 
 const SKELETON_ITEMS = 4
@@ -28,8 +30,11 @@ type Props = {
   /** Grey placeholders stand in while the first read is on its way. */
   loading: boolean
   current: string | null
+  /** Expired memories in the whole file, once it has been read. */
+  expired: number | undefined
   onPick: (namespace: string) => void
   onNewNamespace: () => void
+  onUpkeep: (upkeep: Upkeep) => void
 }
 
 /** The file, its namespaces with their active memories counted, and the theme. */
@@ -38,8 +43,10 @@ export function NamespaceSidebar({
   namespaces,
   loading,
   current,
+  expired,
   onPick,
   onNewNamespace,
+  onUpkeep,
 }: Props) {
   const { setOpenMobile } = useSidebar()
   return (
@@ -106,6 +113,15 @@ export function NamespaceSidebar({
           )}
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter className="p-0">
+        <UpkeepMenu
+          expired={expired}
+          onAsk={(upkeep) => {
+            setOpenMobile(false)
+            onUpkeep(upkeep)
+          }}
+        />
+      </SidebarFooter>
     </Sidebar>
   )
 }

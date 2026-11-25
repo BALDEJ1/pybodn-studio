@@ -1,7 +1,7 @@
 import { QueryClient } from "@tanstack/react-query"
 import { expect, test } from "vitest"
 
-import { memoryKey, staleAfterChange } from "./queries"
+import { memoryKey, refresh, staleAfterChange } from "./queries"
 
 test("a change in a namespace refreshes the counts and its own lists, and nothing of another", async () => {
   const client = new QueryClient()
@@ -25,4 +25,22 @@ test("a change in a namespace refreshes the counts and its own lists, and nothin
     .filter(([, key]) => client.getQueryState(key)?.isInvalidated)
     .map(([name]) => name)
   expect(stale).toEqual(["counts", "tab", "search"])
+})
+
+test("a change across the file refreshes the counts and the lists of every namespace", async () => {
+  const client = new QueryClient()
+  const keys = {
+    counts: ["overview"],
+    tab: ["list", "user:alice", "expired"],
+    otherSearch: ["search", "user:bob", "peanuts"],
+    memory: memoryKey("user:alice", "3f9a"),
+  }
+  for (const key of Object.values(keys)) client.setQueryData(key, {})
+
+  await refresh(client, staleAfterChange(null))
+
+  const stale = Object.entries(keys)
+    .filter(([, key]) => client.getQueryState(key)?.isInvalidated)
+    .map(([name]) => name)
+  expect(stale).toEqual(["counts", "tab", "otherSearch"])
 })

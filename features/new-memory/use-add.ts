@@ -3,11 +3,12 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 
 import { announce } from "@/components/announcer"
-import { setDraft } from "@/hooks/use-drafts"
 import { ApiError, callMemory } from "@/lib/api"
 import type { Outcome, Request } from "@/lib/new-memory"
-import { memoryKey, refresh, staleAfterChange } from "@/lib/queries"
+import { refresh, staleAfterChange } from "@/lib/queries"
 import type { MemoryRecord } from "@/server/bridge/protocol.ts"
+
+import { keepOwnChange } from "../memory/own-change"
 
 type Adding = { request: Request; outcome: Outcome }
 
@@ -23,11 +24,9 @@ export function useAdd(onAdded: (record: MemoryRecord) => void) {
         ? callMemory("put", request.params)
         : callMemory("add", request.params),
     onSuccess: async (record, { outcome }) => {
-      client.setQueryData(memoryKey(record.namespace, record.id), record)
-      // A replaced memory's unsaved edits were made on a text it no longer has.
-      setDraft(record.id, undefined)
-      // A new namespace opens only once the file lists it; until then the page would move on.
-      await refresh(client, staleAfterChange(record.namespace))
+      // A replaced memory's unsaved edits were made on a text it no longer has. A new namespace
+      // opens only once the file lists it; until then the page would move on.
+      await keepOwnChange(client, record, undefined)
       announce(saidAfter(outcome, record))
       onAdded(record)
     },

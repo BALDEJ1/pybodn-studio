@@ -14,8 +14,9 @@ import { cn } from "@/lib/utils"
 
 import { EditorBar } from "./editor-bar"
 import { MemoryEditor } from "./memory-editor"
+import type { Moves } from "./use-memory-actions"
 
-type Props = {
+type Props = Moves & {
   namespace: string | null
   id: string | null
   onBack: () => void
@@ -23,7 +24,13 @@ type Props = {
 }
 
 /** The memory picked, to read and edit. */
-export function MemoryPane({ namespace, id, onBack, className }: Props) {
+export function MemoryPane({
+  namespace,
+  id,
+  onBack,
+  className,
+  ...moves
+}: Props) {
   return (
     <section
       aria-label="Memory"
@@ -31,7 +38,13 @@ export function MemoryPane({ namespace, id, onBack, className }: Props) {
     >
       {namespace !== null && id !== null ? (
         // Each memory starts afresh: its own typed tag, copy button and refused field.
-        <MemoryLoader key={id} namespace={namespace} id={id} onBack={onBack} />
+        <MemoryLoader
+          key={id}
+          namespace={namespace}
+          id={id}
+          onBack={onBack}
+          {...moves}
+        />
       ) : (
         <EditorBar onBack={onBack} className="lg:hidden" />
       )}
@@ -43,7 +56,8 @@ function MemoryLoader({
   namespace,
   id,
   onBack,
-}: {
+  ...moves
+}: Moves & {
   namespace: string
   id: string
   onBack: () => void
@@ -60,6 +74,7 @@ function MemoryLoader({
         failure={memory.error}
         onRetry={retry}
         onBack={onBack}
+        {...moves}
       />
     )
   }

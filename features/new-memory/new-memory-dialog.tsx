@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { useLast } from "@/hooks/use-last"
 import { ApiError } from "@/lib/api"
 import {
   failureOf,
@@ -68,8 +69,7 @@ const ACTIONS: Record<Outcome, string> = {
 /** A new memory, which creates its namespace when that is new, or replaces the memory with its key. */
 export function NewMemoryDialog({ opening, onClose, onAdded, ...rest }: Props) {
   // The words stay while the dialog fades out.
-  const [shown, setShown] = useState<Opening>("memory")
-  if (opening !== null && opening !== shown) setShown(opening)
+  const shown = useLast(opening) ?? "memory"
   const namespaceRef = useRef<HTMLInputElement>(null)
   const textRef = useRef<HTMLTextAreaElement>(null)
   const add = useAdd(onAdded)

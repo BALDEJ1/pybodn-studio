@@ -6,7 +6,7 @@ import { useState } from "react"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { useLeaveWarning } from "@/hooks/use-drafts"
 import { usePlace } from "@/hooks/use-place"
-import { settle, shownId, toNamespace } from "@/lib/place"
+import { placeAfterLeaving, settle, shownId, toNamespace } from "@/lib/place"
 import { overviewQuery } from "@/lib/queries"
 import { cn } from "@/lib/utils"
 
@@ -15,6 +15,10 @@ import { useRows } from "./memories/use-rows"
 import { MemoryPane } from "./memory/memory-pane"
 import { NamespaceSidebar } from "./namespaces/namespace-sidebar"
 import { NewMemoryDialog, type Opening } from "./new-memory/new-memory-dialog"
+import { UpkeepDialogs, type Upkeep } from "./upkeep/file-upkeep"
+
+// Tailwind's lg: from here up the list and the memory stand side by side.
+const WIDE = "(min-width: 64rem)"
 
 /**
  * The namespaces of the file, the memories of one, and the memory picked. Below 1024 px one pane
@@ -28,6 +32,7 @@ export function MemoryScreen({ path }: { path: string }) {
   const names = spaces?.map((space) => space.name) ?? []
   const place = spaces ? settle(asked, names) : asked
   const [opening, setOpening] = useState<Opening | null>(null)
+  const [upkeep, setUpkeep] = useState<Upkeep | null>(null)
   // Nothing is read from a namespace before the file says which ones it has.
   const rows = useRows(spaces ? place.namespace : null, place.view, place.query)
   const loading = !spaces || (place.namespace !== null && !rows.rows)
@@ -40,6 +45,14 @@ export function MemoryScreen({ path }: { path: string }) {
     ? rows.counts
     : spaces?.find((space) => space.name === place.namespace)
 
+  // An archived or deleted memory gives way to its neighbour; on a phone, leaving it is its Back.
+  const leave = (id: string) => {
+    const wide = window.matchMedia(WIDE).matches
+    const next = placeAfterLeaving(place, rows.rows ?? [], id, wide)
+    if (wide) go(next, { replace: true })
+    else back(next)
+  }
+
   return (
     // On a wide screen the sidebar always stands beside the list; on a phone it slides in.
     <SidebarProvider open>
@@ -48,8 +61,10 @@ export function MemoryScreen({ path }: { path: string }) {
         namespaces={spaces}
         loading={overview.isPending}
         current={place.namespace}
+        expired={overview.data?.expired}
         onPick={(name) => go(toNamespace(name))}
         onNewNamespace={() => setOpening("namespace")}
+        onUpkeep={setUpkeep}
       />
       <SidebarInset className="h-svh flex-row overflow-hidden">
         <MemoryList
@@ -71,6 +86,10 @@ export function MemoryScreen({ path }: { path: string }) {
           namespace={place.namespace}
           id={shown}
           onBack={() => back({ ...place, id: null })}
+          onLeave={leave}
+          onShow={(record) =>
+            go({ ...toNamespace(record.namespace), id: record.id })
+          }
         />
       </SidebarInset>
       <NewMemoryDialog
@@ -82,6 +101,16 @@ export function MemoryScreen({ path }: { path: string }) {
           setOpening(null)
           // The memory opens, on Active, where it now is.
           go({ ...toNamespace(record.namespace), id: record.id })
+        }}
+      />
+      <UpkeepDialogs
+        asking={upkeep}
+        expired={overview.data?.expired ?? 0}
+        onClose={() => setUpkeep(null)}
+        onPurged={(gone) => {
+          if (shown !== null && gone.has(shown)) {
+            go({ ...place, id: null }, { replace: true })
+          }
         }}
       />
     </SidebarProvider>

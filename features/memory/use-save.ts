@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 
 import { announce } from "@/components/announcer"
 import { notify } from "@/components/toaster"
-import { readDraft, setDraft } from "@/hooks/use-drafts"
+import { readDraft } from "@/hooks/use-drafts"
 import { ApiError, callMemory, canRetry } from "@/lib/api"
 import {
   afterSave,
@@ -18,6 +18,8 @@ import {
 import { memoryKey, refresh, staleAfterChange } from "@/lib/queries"
 import { VIEW_NAMES } from "@/lib/view-names"
 import type { MemoryRecord } from "@/server/bridge/protocol.ts"
+
+import { keepOwnChange } from "./own-change"
 
 /** A field the library refused, with its reason. */
 export type Rejection = { field: Field; message: string }
@@ -55,9 +57,7 @@ export function useSave(
       })
     },
     onSuccess: (saved, { record, draft }) => {
-      client.setQueryData(key, saved)
-      setDraft(id, afterSave(readDraft(id), draft, saved))
-      void refresh(client, staleAfterChange(namespace))
+      void keepOwnChange(client, saved, afterSave(readDraft(id), draft, saved))
       if (saved.status === record.status) announce("Saved.")
       else notify(`Saved. It is now under ${VIEW_NAMES[saved.status]}.`)
       onSaved()
