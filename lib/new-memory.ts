@@ -85,7 +85,8 @@ export function newFieldOf(message: string): NewField | null {
 /** A refusal to add, under the field it is about, or over the form when it is about none. */
 export type Failure = { field: NewField | null; message: string }
 
-export const TAKEN = "Another memory took this key just now."
+// The key may have been taken meanwhile, or all along when its owner could not be looked up.
+export const TAKEN = "Another memory already holds this key."
 
 /** Where a refusal shows, from the code and reason the server gave. */
 export function failureOf(code: string | null, message: string): Failure {

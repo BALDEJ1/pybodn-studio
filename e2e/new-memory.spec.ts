@@ -67,6 +67,8 @@ test("a key an archived memory holds: the dialog shows that memory, and replacin
   await tab(page, "Archived").click()
   await rows(page).filter({ hasText: "Planning a trip to Lisbon" }).click()
   const id = new URL(page.url()).searchParams.get("id")
+  // Unsaved edits made on the old text go with it.
+  await memoryText(page).fill("Planning a trip to Lisbon in November")
 
   await page.getByRole("button", { name: "New memory" }).click()
   const dialog = page.getByRole("dialog", { name: "New memory" })
@@ -83,6 +85,10 @@ test("a key an archived memory holds: the dialog shows that memory, and replacin
   await expect(memoryText(page)).toHaveValue(
     "Planning a trip to Kyoto in March"
   )
+  await expect(memoryPane(page).getByRole("alert")).toHaveCount(0)
+  await expect(
+    memoryPane(page).getByRole("button", { name: "Save", exact: true })
+  ).toBeHidden()
   // The same memory, not a new one beside it.
   expect(new URL(page.url()).searchParams.get("id")).toBe(id)
   await tab(page, "Archived").click()

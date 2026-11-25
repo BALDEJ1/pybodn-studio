@@ -157,7 +157,7 @@ describe("what the library would refuse in a new memory", () => {
 })
 
 describe("a refusal to add", () => {
-  test("of a key taken meanwhile shows under the key", () => {
+  test("of a key another memory holds shows under the key", () => {
     const message = "key 'drink' is already used in namespace 'user:alice'"
 
     expect(failureOf("duplicate_key", message)).toEqual({

@@ -1,4 +1,9 @@
-import { type ChildProcess, spawn, spawnSync } from "node:child_process"
+import {
+  type ChildProcess,
+  spawn,
+  spawnSync,
+  type SpawnSyncReturns,
+} from "node:child_process"
 import { once } from "node:events"
 import { createServer } from "node:net"
 import path from "node:path"
@@ -38,7 +43,7 @@ export function seed(path: string): void {
     env: env as NodeJS.ProcessEnv,
     encoding: "utf8",
   })
-  if (run.status !== 0) throw new Error(`seed failed: ${run.stderr}`)
+  check(run, "seed")
 }
 
 /**
@@ -77,7 +82,16 @@ function elsewhere(
     [...args, db, namespace, method, JSON.stringify(fields)],
     { cwd: ROOT, env: env as NodeJS.ProcessEnv, encoding: "utf8" }
   )
-  if (run.status !== 0) throw new Error(`${method} failed: ${run.stderr}`)
+  check(run, method)
+}
+
+/** Fails with why the process did not finish well: it never started, was stopped, or said so. */
+function check(run: SpawnSyncReturns<string>, what: string): void {
+  if (run.status === 0) return
+  const reason =
+    run.error?.message ??
+    (run.signal === null ? run.stderr : `stopped by ${run.signal}`)
+  throw new Error(`${what} failed: ${reason}`)
 }
 
 function linkOf(child: ChildProcess): Promise<string> {
